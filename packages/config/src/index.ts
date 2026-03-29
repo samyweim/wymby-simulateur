@@ -6,6 +6,7 @@
  */
 
 export { FISCAL_PARAMS_2026 } from "./fiscal_params_2026.js";
+import { FISCAL_PARAMS_2026 } from "./fiscal_params_2026.js";
 export type {
   TrancheIR,
   TrancheCotisation,

@@ -1,0 +1,167 @@
+.sc-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  transition: box-shadow 0.2s;
+}
+
+.sc-card:hover { box-shadow: var(--shadow-hover); }
+
+.sc-recommande {
+  border-color: var(--ardoise);
+  background: var(--ardoise-light);
+  box-shadow: 0 0 0 3px rgba(78,96,112,.10);
+}
+
+.sc-reference {
+  border-color: var(--sage-mid);
+}
+
+.sc-badge {
+  position: absolute;
+  top: -12px;
+  left: 1.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.625rem;
+  border-radius: 4px;
+}
+
+.sc-badge-recommande { background: var(--ardoise); color: #fff; }
+.sc-badge-reference  { background: var(--sage); color: #fff; }
+
+.sc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.sc-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sc-rank {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+.sc-title {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.sc-net {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.sc-net-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.sc-net-value {
+  font-family: var(--font-serif);
+  font-size: 1.625rem;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.sc-net-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sc-super-net {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: var(--ocre-light);
+  border: 1px solid var(--ocre-mid);
+  border-radius: var(--radius-sm);
+  padding: 0.375rem 0.625rem;
+}
+
+.sc-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.sc-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.sc-metric-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sc-metric-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.sc-ecart {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.sc-ecart-per-month { color: var(--text-muted); }
+
+.sc-boosters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.sc-booster-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: var(--sage-light);
+  color: var(--sage);
+  border: 1px solid var(--sage-mid);
+}
+
+.sc-fiabilite {
+  font-size: 0.75rem;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.sc-fiabilite-complet  { color: var(--sage); }
+.sc-fiabilite-partiel  { color: var(--ocre); }
+.sc-fiabilite-estimation { color: var(--terre); }

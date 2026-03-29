@@ -1,0 +1,110 @@
+.comp-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.comp-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  min-width: 700px;
+}
+
+.comp-table thead {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.comp-table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.col-num { text-align: right; }
+.col-scenario { min-width: 160px; }
+
+.comp-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.comp-table tbody tr:last-child td { border-bottom: none; }
+
+.comp-table tbody tr:hover { background: var(--bg); }
+
+.row-recommande { background: var(--ardoise-light); }
+.row-recommande:hover { background: #dde5ea !important; }
+.row-reference { background: var(--sage-light); }
+.row-reference:hover { background: #e5ede6 !important; }
+
+.row-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.row-rank {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.row-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.row-tag {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+}
+
+.tag-rec { background: var(--ardoise); color: #fff; }
+.tag-ref { background: var(--sage); color: #fff; }
+
+.row-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.opt-tag {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.opt-muted  { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+.opt-active { background: var(--ocre-light); color: var(--ocre); border: 1px solid var(--ocre-mid); }
+.opt-booster { background: var(--sage-light); color: var(--sage); border: 1px solid var(--sage-mid); }
+
+.col-net {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+.col-muted { color: var(--text-muted); }

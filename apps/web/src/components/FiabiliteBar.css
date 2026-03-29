@@ -1,0 +1,62 @@
+.fiabilite-bar {
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  border: 1px solid;
+}
+
+.fiabilite-complet {
+  background: var(--sage-light);
+  border-color: var(--sage-mid);
+}
+.fiabilite-partiel {
+  background: var(--ocre-light);
+  border-color: var(--ocre-mid);
+}
+.fiabilite-estimation {
+  background: var(--terre-light);
+  border-color: var(--terre-mid);
+}
+
+.fiabilite-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.fiabilite-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.fiabilite-complet .fiabilite-label { color: var(--sage); }
+.fiabilite-partiel .fiabilite-label { color: var(--ocre); }
+.fiabilite-estimation .fiabilite-label { color: var(--terre); }
+
+.fiabilite-score {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.fiabilite-track {
+  height: 4px;
+  background: rgba(0,0,0,.08);
+  border-radius: 2px;
+  margin-bottom: 0.5rem;
+}
+
+.fiabilite-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.fiabilite-complet .fiabilite-fill { background: var(--sage); }
+.fiabilite-partiel .fiabilite-fill { background: var(--ocre); }
+.fiabilite-estimation .fiabilite-fill { background: var(--terre); }
+
+.fiabilite-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}

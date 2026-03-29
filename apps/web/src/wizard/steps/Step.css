@@ -1,0 +1,37 @@
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.step-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.step-header h2 {
+  color: var(--text-primary);
+}
+
+.step-header p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.step-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.field-indent {
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--ardoise-light);
+}
+
+.ca-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}

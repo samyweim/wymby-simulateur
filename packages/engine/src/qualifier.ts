@@ -400,7 +400,7 @@ function _isPumaPotentielle(input: UserInput, params: FP): boolean {
   const ca = input.CA_ENCAISSE_UTILISATEUR;
 
   // Condition : revenus activité < seuil_activite ET revenus capital > seuil_capital
-  const pumaObj = seuilPuma as Record<string, number>;
+  const pumaObj = seuilPuma as unknown as Record<string, number>;
   const seuilActivite = pumaObj["seuil_revenus_activite"] ?? 0;
   const seuilCapital = pumaObj["seuil_revenus_patrimoine"] ?? 0;
 

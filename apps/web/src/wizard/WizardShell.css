@@ -1,0 +1,93 @@
+.wizard-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────────── */
+.wizard-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.wizard-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-top: 1rem;
+}
+
+.brand-name {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  color: var(--text-primary);
+  letter-spacing: -.02em;
+}
+
+.brand-tagline {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ── Main ───────────────────────────────────────────────────────────────────── */
+.wizard-main {
+  flex: 1;
+  padding: 2.5rem 0 6rem;
+}
+
+.wizard-content {
+  animation: fade-up 0.25s ease both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wizard-error {
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--terre-light);
+  border: 1px solid var(--terre-mid);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--terre);
+}
+
+/* ── Footer sticky ──────────────────────────────────────────────────────────── */
+.wizard-footer {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.04);
+  z-index: 10;
+  padding: 0.875rem 0;
+}
+
+.wizard-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wizard-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.wizard-step-counter {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

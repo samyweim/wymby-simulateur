@@ -1,0 +1,13 @@
+.delta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.delta-pos { background: var(--sage-light); color: var(--sage); }
+.delta-neg { background: var(--terre-light); color: var(--terre); }
+.delta-zero { background: var(--ardoise-light); color: var(--text-muted); }
