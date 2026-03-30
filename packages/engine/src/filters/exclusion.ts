@@ -155,16 +155,6 @@ export function filtrerScenariosParExclusion(
       motifsExclusion.push(filtres.motifs["X03"] ?? "RFR > seuil VFL");
     }
 
-    // ZFRR incompatible avec micro
-    if (
-      sc.boosters_actifs.includes("BOOST_ZFRR") &&
-      _isMicroScenario(sc.base_id)
-    ) {
-      motifsExclusion.push(
-        "ZFRR incompatible avec le régime micro (régime réel obligatoire pour les zones ZFRR)."
-      );
-    }
-
     if (motifsExclusion.length > 0) {
       exclus.push({
         scenario_id: sc.scenario_id,
@@ -177,6 +167,20 @@ export function filtrerScenariosParExclusion(
       });
     } else {
       possibles.push(sc);
+    }
+  }
+
+  if (filtres.vfl_exclu && input.OPTION_VFL_DEMANDEE === true) {
+    const base_id = _getRequestedMicroBase(input);
+    if (
+      base_id &&
+      !exclus.some((sc) => sc.scenario_id.startsWith(`${base_id}__VFL_OUI`))
+    ) {
+      exclus.push({
+        scenario_id: `${base_id}__VFL_OUI`,
+        base_id,
+        motifs_exclusion: [filtres.motifs["X03"] ?? "RFR > seuil VFL"],
+      });
     }
   }
 
@@ -205,4 +209,11 @@ function _isMicroScenario(baseId: string): boolean {
     baseId === "A_BNC_MICRO_TVA_COLLECTEE" ||
     baseId === "I_LMNP_MICRO"
   );
+}
+
+function _getRequestedMicroBase(input: UserInput): ScenarioExclu["base_id"] | null {
+  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "G_MBIC_VENTE";
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "G_MBNC";
+  if (input.SOUS_SEGMENT_ACTIVITE === "prestation") return "G_MBIC_SERVICE";
+  return null;
 }

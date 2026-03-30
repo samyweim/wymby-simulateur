@@ -13,7 +13,7 @@
 
 export type NiveauFiabilite = "complet" | "partiel" | "estimation";
 export type NiveauCertitude = "certain" | "estimé" | "faible";
-export type LogLevel = "info" | "warn" | "error" | "calc";
+export type LogLevel = "info" | "debug" | "trace" | "warn" | "error";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ENUMS / UNIONS MÉTIER
@@ -119,6 +119,7 @@ export type BaseScenarioId =
   | "S_SELARL_IS"
   | "S_SELAS_IS"
   // Artistes-auteurs
+  | "A_BNC_MICRO"
   | "A_BNC_MICRO_TVA_FRANCHISE"
   | "A_BNC_MICRO_TVA_COLLECTEE"
   | "A_BNC_REEL"
@@ -198,6 +199,8 @@ export interface UserInputTemporalite {
   ANCIENNETE_ACTIVITE?: number;
   CHANGEMENT_REGIME_EN_COURS_D_ANNEE?: boolean;
   DATE_CHANGEMENT_REGIME?: string;
+  OPTION_IR_TEMPORAIRE_ACTIVE?: boolean;
+  ANNEE_OPTION_IR?: number;
 }
 
 export interface UserInputSante {
@@ -210,6 +213,7 @@ export interface UserInputSante {
 }
 
 export interface UserInputArtisteAuteur {
+  EST_ARTISTE_AUTEUR?: boolean;
   MODE_DECLARATION_ARTISTE_AUTEUR?: ModeDeclarationArtisteAuteur;
   OPTION_FRAIS_REELS_TS?: boolean;
   EST_REDEVABLE_RAAP?: boolean;
@@ -286,6 +290,15 @@ export interface QualificationFlags {
   FLAG_EURL_IR_POSSIBLE: boolean;
   FLAG_SASU_IS_POSSIBLE: boolean;
   FLAG_SASU_IR_POSSIBLE: boolean;
+  FLAG_RSPM_POSSIBLE: boolean;
+  FLAG_SANTE_MICRO_POSSIBLE: boolean;
+  FLAG_SANTE_REEL_POSSIBLE: boolean;
+  FLAG_AIDE_CPAM_POSSIBLE: boolean;
+  FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE: boolean;
+  FLAG_ARTISTE_AUTEUR_TS_POSSIBLE: boolean;
+  FLAG_RAAP_APPLICABLE: boolean;
+  FLAG_LMNP_MICRO_POSSIBLE: boolean;
+  FLAG_LMP_POSSIBLE: boolean;
   FLAG_ACRE_POSSIBLE: boolean;
   FLAG_ARCE_POSSIBLE: boolean;
   FLAG_ZFRR_POSSIBLE: boolean;

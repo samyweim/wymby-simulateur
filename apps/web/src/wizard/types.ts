@@ -4,19 +4,21 @@
  */
 
 export type TypeActivite =
-  | "prestation"      // Prestation de service / consulting
-  | "vente"           // Vente de marchandises
-  | "liberal"         // Profession libérale (avocat, expert-comptable…)
-  | "sante"           // Santé (médecin, kiné, infirmier…)
-  | "artiste"         // Artiste-auteur
-  | "location"        // Location meublée (LMNP/LMP)
+  | "prestation"
+  | "commerce"
+  | "liberal_reglemente"
+  | "liberal_non_reglemente"
+  | "sante_medecin"
+  | "sante_paramedicale"
+  | "artiste"
+  | "location"
   | "";
 
-export type FormeEnvisagee =
-  | "non_decide"
-  | "EI"
-  | "EURL"
-  | "SASU"
+export type SecteurConventionnel =
+  | "1"
+  | "2_optam"
+  | "2_non_optam"
+  | "3"
   | "";
 
 export type SituationFamilialeWizard =
@@ -27,14 +29,19 @@ export type SituationFamilialeWizard =
 export interface WizardState {
   // Step 0 — Activité
   type_activite: TypeActivite;
-  forme_envisagee: FormeEnvisagee;
-  date_creation: string;          // "" = démarre maintenant
+  secteur_conventionnel: SecteurConventionnel;
+  est_deja_en_activite: boolean | null;
+  annee_debut_activite: string;
 
   // Step 1 — Revenus
-  ca_annuel: string;              // saisie libre → parsé en number
+  ca_annuel: string;
   mode_ca: "HT" | "TTC";
   a_des_charges: boolean | null;
   charges_annuelles: string;
+  charges_locaux: string;
+  charges_materiel: string;
+  charges_personnel: string;
+  charges_autres: string;
   a_des_amortissements: boolean | null;
   amortissements_annuels: string;
   certitude_ca: "certain" | "estimé" | "faible";
@@ -51,18 +58,24 @@ export interface WizardState {
   est_creation: boolean | null;
   percoit_chomage: boolean | null;
   droits_are_restants: string;
-  zone_speciale: "aucune" | "ZFRR" | "ZFRR_PLUS" | "QPV" | "";
+  code_postal: string;
   tva_deja_applicable: boolean | null;
+  envisage_associes: boolean | null;
 }
 
 export const WIZARD_INITIAL_STATE: WizardState = {
   type_activite: "",
-  forme_envisagee: "",
-  date_creation: "",
+  secteur_conventionnel: "",
+  est_deja_en_activite: null,
+  annee_debut_activite: "",
   ca_annuel: "",
   mode_ca: "HT",
   a_des_charges: null,
   charges_annuelles: "",
+  charges_locaux: "",
+  charges_materiel: "",
+  charges_personnel: "",
+  charges_autres: "",
   a_des_amortissements: null,
   amortissements_annuels: "",
   certitude_ca: "estimé",
@@ -75,6 +88,7 @@ export const WIZARD_INITIAL_STATE: WizardState = {
   est_creation: null,
   percoit_chomage: null,
   droits_are_restants: "",
-  zone_speciale: "",
+  code_postal: "",
   tva_deja_applicable: null,
+  envisage_associes: null,
 };

@@ -15,14 +15,14 @@
 import type {
   UserInput,
   EngineOutput,
-  EngineLog,
   DetailCalculScenario,
   ScenarioCandidat,
   BaseScenarioId,
   NiveauFiabilite,
 } from "@wymby/types";
-import { FISCAL_PARAMS_2026, resolveParams } from "@wymby/config";
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import { createLogger } from "./logger.js";
+import type { EngineLog, EngineLogger } from "./logger.js";
 import { validateUserInput } from "./guards.js";
 import { normaliserEntrees } from "./normalizer.js";
 import { qualifierProfil } from "./qualifier.js";
@@ -33,6 +33,7 @@ import { appliquerBoosters } from "./scenarios/booster-applicator.js";
 import { calculerMicro } from "./calculators/micro.js";
 import { calculerEIReel } from "./calculators/ei-reel.js";
 import { calculerSociete } from "./calculators/societes.js";
+import { calculerScenarioSpecialise } from "./calculators/special-segments.js";
 import {
   determinerScenarioReference,
   construireComparaison,
@@ -40,6 +41,12 @@ import {
   calculerScores,
 } from "./comparator.js";
 import { construireEngineOutput } from "./output-builder.js";
+import {
+  formatEngineLogs,
+  filterLogs,
+  filterLogsByScenario,
+  summarizeLogs,
+} from "./log-formatter.js";
 
 type FP = typeof FISCAL_PARAMS_2026;
 
@@ -216,10 +223,11 @@ function _calculerScenario(
   // Appliquer les boosters pour obtenir exonération et réductions
   // Utiliser annee 1 par défaut si non connue
   const annee_dans_dispositif = _getAnneeDispositif(input);
+  const resultatFiscalEstime = _estimerResultatFiscalAvantBoosters(sc, input, norm, params);
   const boosterResult = appliquerBoosters(
     sc.boosters_actifs,
     0, // sera recalculé après cotisations
-    0, // idem
+    resultatFiscalEstime,
     input,
     params,
     annee_dans_dispositif,
@@ -231,6 +239,7 @@ function _calculerScenario(
   if (_isMicroScenario(baseId)) {
     rawResultat = calculerMicro(
       {
+        scenario_id: sc.scenario_id,
         CA_HT_RETENU: norm.CA_HT_RETENU,
         TVA_NETTE_DUE: norm.TVA_NETTE_DUE,
         type_micro: _getMicroType(baseId),
@@ -239,20 +248,27 @@ function _calculerScenario(
         date_creation: input.DATE_CREATION_ACTIVITE
           ? new Date(input.DATE_CREATION_ACTIVITE)
           : undefined,
-        exoneration_zone: boosterResult.exoneration_fiscale,
+        exoneration_fiscale_zone: boosterResult.exoneration_fiscale,
+        exoneration_sociale_zone: sc.boosters_actifs.includes("BOOST_ZFRR_PLUS")
+          ? boosterResult.exoneration_fiscale
+          : 0,
         autres_revenus_foyer: input.AUTRES_REVENUS_FOYER_IMPOSABLES,
         autres_charges_foyer: input.AUTRES_CHARGES_DEDUCTIBLES_FOYER,
         nombre_parts_fiscales: norm.NOMBRE_PARTS_FISCALES,
         droits_are_restants: input.DROITS_ARE_RESTANTS,
       },
-      params
+      params,
+      logger
     );
   } else if (_isEIReelScenario(baseId)) {
     rawResultat = calculerEIReel(
       {
+        scenario_id: sc.scenario_id,
         RECETTES_PRO_RETENUES: norm.RECETTES_PRO_RETENUES,
-        CHARGES_DECAISSEES: norm.CHARGES_DECAISSEES_RETENUES,
+        CHARGES_DECAISSEES:
+          input.CHARGES_DECAISSEES ?? norm.CHARGES_DEDUCTIBLES_RETENUES,
         CHARGES_DEDUCTIBLES: norm.CHARGES_DEDUCTIBLES_RETENUES,
+        DOTATIONS_AMORTISSEMENTS: input.DOTATIONS_AMORTISSEMENTS,
         TVA_NETTE_DUE: norm.TVA_NETTE_DUE,
         type_ei: _getEIType(baseId),
         acre_active: sc.boosters_actifs.includes("BOOST_ACRE"),
@@ -266,14 +282,18 @@ function _calculerScenario(
         droits_are_restants: input.DROITS_ARE_RESTANTS,
         remuneration_dirigeant: input.REMUNERATION_DIRIGEANT_ENVISAGEE,
       },
-      params
+      params,
+      logger
     );
   } else if (_isSocieteScenario(baseId)) {
     rawResultat = calculerSociete(
       {
+        scenario_id: sc.scenario_id,
         RECETTES_PRO_RETENUES: norm.RECETTES_PRO_RETENUES,
         CHARGES_DEDUCTIBLES: norm.CHARGES_DEDUCTIBLES_RETENUES,
-        CHARGES_DECAISSEES: norm.CHARGES_DECAISSEES_RETENUES,
+        CHARGES_DECAISSEES:
+          input.CHARGES_DECAISSEES ?? norm.CHARGES_DEDUCTIBLES_RETENUES,
+        DOTATIONS_AMORTISSEMENTS: input.DOTATIONS_AMORTISSEMENTS,
         TVA_NETTE_DUE: norm.TVA_NETTE_DUE,
         type_societe: _getSocieteType(baseId),
         remuneration_dirigeant: input.REMUNERATION_DIRIGEANT_ENVISAGEE ?? norm.CA_HT_RETENU * 0.5,
@@ -288,21 +308,63 @@ function _calculerScenario(
         nombre_parts_fiscales: norm.NOMBRE_PARTS_FISCALES,
         droits_are_restants: input.DROITS_ARE_RESTANTS,
       },
-      params
+      params,
+      logger
     );
   } else {
-    // Segment V2 (santé, artiste, immobilier) — stub
-    logger.warn(7, "Scénario V2 non calculé", { scenario_id: sc.scenario_id });
-    return null;
+    rawResultat = calculerScenarioSpecialise(
+      {
+        scenario_id: sc.scenario_id,
+        base_id: sc.base_id,
+        recettes: input.RECETTES_LOCATION_MEUBLEE ?? norm.RECETTES_PRO_RETENUES,
+        charges_deductibles: norm.CHARGES_DEDUCTIBLES_RETENUES,
+        charges_decaissees:
+          input.CHARGES_DECAISSEES !== undefined
+            ? input.CHARGES_DECAISSEES
+            : norm.CHARGES_DEDUCTIBLES_RETENUES,
+        amortissements: input.DOTATIONS_AMORTISSEMENTS,
+        autres_revenus_foyer: input.AUTRES_REVENUS_FOYER_IMPOSABLES,
+        autres_charges_foyer: input.AUTRES_CHARGES_DEDUCTIBLES_FOYER,
+        nombre_parts_fiscales: norm.NOMBRE_PARTS_FISCALES,
+        secteur_conventionnel: input.SECTEUR_CONVENTIONNEL,
+        sous_segment_activite: input.SOUS_SEGMENT_ACTIVITE,
+        option_raap_taux_reduit: input.OPTION_RAAP_TAUX_REDUIT,
+        est_redevable_raap: input.EST_REDEVABLE_RAAP,
+        autres_revenus_activite_foyer: input.AUTRES_REVENUS_ACTIVITE_FOYER,
+      },
+      params,
+      logger
+    );
   }
 
   if (!rawResultat) return null;
+
+  if (boosterResult.avertissement) {
+    rawResultat.avertissements.push(boosterResult.avertissement);
+  }
+
+  if (input.OPTION_IR_TEMPORAIRE_ACTIVE === true) {
+    rawResultat.avertissements.push("OPTION_IR_TEMPORAIRE_DUREE_LIMITEE_5_ANS");
+  }
 
   // Ajouter l'aide ARCE trésorerie
   if (sc.boosters_actifs.includes("BOOST_ARCE") && boosterResult.aide_tresorerie > 0) {
     rawResultat.intermediaires.AIDE_ARCE_TRESORERIE = boosterResult.aide_tresorerie;
     rawResultat.intermediaires.SUPER_NET =
       (rawResultat.intermediaires.NET_APRES_IR ?? 0) + boosterResult.aide_tresorerie;
+    rawResultat.avertissements.push("ARCE_FLUX_NON_RECURRENT");
+  }
+
+  if (input.DATE_DEPASSEMENT_TVA_DECLARATIVE) {
+    rawResultat.niveau_fiabilite = "partiel";
+    rawResultat.avertissements.push(
+      `DEPASSEMENT_SEUIL_TVA_MAJORE_${_getTvaWarningSuffix(input)}`,
+    );
+    rawResultat.avertissements.push(
+      `TVA_APPLICABLE_DES_LE_${new Date(input.DATE_DEPASSEMENT_TVA_DECLARATIVE)
+        .toLocaleDateString("fr-FR")
+        .replace(/\//g, "_")}`
+    );
   }
 
   const calcul: DetailCalculScenario = {
@@ -397,7 +459,43 @@ function _getAnneeDispositif(input: UserInput): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { FISCAL_PARAMS_2026 };
+export { formatEngineLogs, filterLogs, filterLogsByScenario, summarizeLogs };
 export type { EngineOutput, UserInput, EngineLog };
+export type { LogLevel } from "./logger.js";
 
-// Import de type nécessaire pour le logger dans la fonction privée
-import type { EngineLogger } from "./logger.js";
+function _getTvaWarningSuffix(input: UserInput): string {
+  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
+  return "BIC_SERVICE";
+}
+
+function _estimerResultatFiscalAvantBoosters(
+  sc: ScenarioCandidat,
+  input: UserInput,
+  norm: ReturnType<typeof normaliserEntrees>,
+  params: FP
+): number {
+  if (_isMicroScenario(sc.base_id)) {
+    const tauxAbattement =
+      sc.base_id === "G_MBIC_VENTE"
+        ? params.abattements.CFG_ABATTEMENT_MICRO_BIC_VENTE
+        : sc.base_id === "G_MBIC_SERVICE"
+          ? params.abattements.CFG_ABATTEMENT_MICRO_BIC_SERVICE
+          : params.abattements.CFG_ABATTEMENT_MICRO_BNC;
+    return Math.max(0, norm.CA_HT_RETENU - norm.CA_HT_RETENU * tauxAbattement);
+  }
+
+  if (_isEIReelScenario(sc.base_id) || _isSocieteScenario(sc.base_id)) {
+    return Math.max(
+      0,
+      norm.RECETTES_PRO_RETENUES -
+        norm.CHARGES_DEDUCTIBLES_RETENUES -
+        (input.DOTATIONS_AMORTISSEMENTS ?? 0) -
+        ((_isSocieteScenario(sc.base_id) || sc.base_id === "G_EI_REEL_BIC_IS" || sc.base_id === "G_EI_REEL_BNC_IS")
+          ? (input.REMUNERATION_DIRIGEANT_ENVISAGEE ?? 0)
+          : 0)
+    );
+  }
+
+  return 0;
+}

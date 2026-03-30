@@ -1,11 +1,13 @@
-/**
- * mapper.ts — Convertit WizardState (langage utilisateur) → UserInput (moteur fiscal).
- *
- * Ce fichier est la seule couche de traduction jargon ↔ langage courant.
- * Aucun calcul fiscal ici — uniquement du mapping et de la normalisation.
- */
-
-import type { UserInput, SegmentActivite, SousSegmentActivite, FormeJuridique, RegimeFiscalEnvisage, OptionExonerationZone } from "@wymby/types";
+import type {
+  FormeJuridique,
+  OptionExonerationZone,
+  RegimeFiscalEnvisage,
+  SecteurConventionnel as EngineSecteurConventionnel,
+  SegmentActivite,
+  SousSegmentActivite,
+  UserInput,
+} from "@wymby/types";
+import { resolveZoneFromCodePostal } from "../data/zones_cp.js";
 import type { WizardState } from "./types.js";
 
 function parseNum(s: string): number | undefined {
@@ -21,102 +23,133 @@ function parseNumRequired(s: string): number {
 function partsFromSituation(state: WizardState): number {
   const base = state.situation_familiale === "en_couple" ? 2 : 1;
   const enfants = state.nb_enfants;
-  // Approximation QF : 0.5 part par enfant jusqu'à 2, 1 part à partir du 3e
   if (enfants === 0) return base;
   if (enfants === 1) return base + 0.5;
   if (enfants === 2) return base + 1;
-  return base + 2; // 3 enfants ou plus
+  return base + 2;
 }
 
 function mapSegment(type: WizardState["type_activite"]): SegmentActivite {
-  if (type === "sante") return "sante";
+  if (type === "sante_medecin" || type === "sante_paramedicale") return "sante";
   if (type === "artiste") return "artiste_auteur";
   if (type === "location") return "immobilier";
   return "generaliste";
 }
 
 function mapSousSegment(type: WizardState["type_activite"]): SousSegmentActivite | undefined {
-  if (type === "vente") return "achat_revente";
+  if (type === "commerce") return "achat_revente";
   if (type === "prestation") return "prestation";
-  if (type === "liberal") return "liberal";
-  if (type === "sante") return "medecin";
+  if (type === "liberal_reglemente" || type === "liberal_non_reglemente") return "liberal";
+  if (type === "sante_medecin") return "medecin";
+  if (type === "sante_paramedicale") return "paramedical";
   if (type === "artiste") return "artiste_auteur";
   if (type === "location") return "lmnp";
   return undefined;
 }
 
-function mapForme(f: WizardState["forme_envisagee"]): FormeJuridique {
-  if (f === "EI") return "EI";
-  if (f === "EURL") return "EURL";
-  if (f === "SASU") return "SASU";
+function mapForme(state: WizardState): FormeJuridique {
+  if (state.envisage_associes === true) return "SASU";
   return "non_decide";
 }
 
 function mapRegime(state: WizardState): RegimeFiscalEnvisage {
-  if (state.forme_envisagee === "EURL") return "non_decide"; // peut être IR ou IS
-  if (state.forme_envisagee === "SASU") return "IS";
+  if (state.envisage_associes === true) return "IS";
   return "non_decide";
 }
 
-function mapZone(z: WizardState["zone_speciale"]): OptionExonerationZone | undefined {
-  if (z === "ZFRR") return "ZFRR";
-  if (z === "ZFRR_PLUS") return "ZFRR_PLUS";
-  if (z === "QPV") return "QPV";
+function mapSecteurConventionnel(
+  s: WizardState["secteur_conventionnel"]
+): EngineSecteurConventionnel | undefined {
+  if (!s) return undefined;
+  const map: Record<string, EngineSecteurConventionnel> = {
+    "1": "secteur_1",
+    "2_optam": "secteur_2_optam",
+    "2_non_optam": "secteur_2_non_optam",
+    "3": "secteur_3",
+  };
+  return map[s] as EngineSecteurConventionnel;
+}
+
+function getDateCreation(state: WizardState): string | undefined {
+  if (state.est_deja_en_activite === true && state.annee_debut_activite) {
+    return `${state.annee_debut_activite}-01-01`;
+  }
+  if (state.est_creation === true) {
+    return "2026-01-01";
+  }
   return undefined;
 }
 
 export function mapWizardToUserInput(state: WizardState): UserInput {
   const ca = parseNumRequired(state.ca_annuel);
-  const charges = state.a_des_charges ? parseNum(state.charges_annuelles) : 0;
-  const amortissements = state.a_des_amortissements ? parseNum(state.amortissements_annuels) : undefined;
-  const autres_revenus = state.a_autres_revenus ? parseNum(state.autres_revenus_foyer) : 0;
+  const chargesLocaux = parseNum(state.charges_locaux ?? "") ?? 0;
+  const chargesMateriel = parseNum(state.charges_materiel ?? "") ?? 0;
+  const chargesPersonnel = parseNum(state.charges_personnel ?? "") ?? 0;
+  const chargesAutres = parseNum(state.charges_autres ?? "") ?? 0;
+  const autresRevenus = state.a_autres_revenus ? parseNum(state.autres_revenus_foyer) : 0;
   const rfr = state.connait_rfr ? parseNum(state.rfr_n2) : undefined;
-  const droits_are = state.percoit_chomage ? parseNum(state.droits_are_restants) : undefined;
-  const zone = mapZone(state.zone_speciale);
-  const nb_parts = partsFromSituation(state);
+  const droitsAre = state.percoit_chomage ? parseNum(state.droits_are_restants) : undefined;
+  const nbParts = partsFromSituation(state);
+  const zoneResolue = resolveZoneFromCodePostal(state.code_postal ?? "");
+  const zone = zoneResolue !== "aucune" ? zoneResolue : undefined;
+  const secteurConventionnel = mapSecteurConventionnel(state.secteur_conventionnel);
+
+  const SEUIL_AMORTISSEMENT_MATERIEL = 500;
+  const materielAmortissable =
+    chargesMateriel > SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0;
+  const chargesCourantes =
+    chargesLocaux +
+    chargesPersonnel +
+    chargesAutres +
+    (chargesMateriel <= SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0);
+
+  const chargesTotal =
+    chargesCourantes > 0
+      ? chargesCourantes
+      : state.a_des_charges
+        ? (parseNum(state.charges_annuelles) ?? 0)
+        : 0;
+
+  const amortissementsTotal =
+    materielAmortissable > 0
+      ? materielAmortissable
+      : state.a_des_amortissements
+        ? (parseNum(state.amortissements_annuels) ?? 0)
+        : undefined;
 
   return {
-    // Profil
     ANNEE_SIMULATION: 2026,
     SEGMENT_ACTIVITE: mapSegment(state.type_activite),
     SOUS_SEGMENT_ACTIVITE: mapSousSegment(state.type_activite),
-    FORME_JURIDIQUE_ENVISAGEE: mapForme(state.forme_envisagee),
+    FORME_JURIDIQUE_ENVISAGEE: mapForme(state),
     REGIME_FISCAL_ENVISAGE: mapRegime(state),
-
-    // Activité
     INPUT_MODE_CA: state.mode_ca,
     CA_ENCAISSE_UTILISATEUR: ca,
-    CHARGES_DECAISSEES: charges,
-    CHARGES_DEDUCTIBLES: charges,
-    DOTATIONS_AMORTISSEMENTS: amortissements,
-
-    // Foyer
-    SITUATION_FAMILIALE:
-      state.situation_familiale === "en_couple" ? "marie" : "celibataire",
-    NOMBRE_PARTS_FISCALES: nb_parts,
+    CHARGES_DECAISSEES: chargesTotal,
+    CHARGES_DEDUCTIBLES: chargesTotal,
+    DOTATIONS_AMORTISSEMENTS: amortissementsTotal,
+    SITUATION_FAMILIALE: state.situation_familiale === "en_couple" ? "marie" : "celibataire",
+    NOMBRE_PARTS_FISCALES: nbParts,
     NOMBRE_ENFANTS_A_CHARGE: state.nb_enfants,
-    AUTRES_REVENUS_FOYER_IMPOSABLES: autres_revenus,
+    AUTRES_REVENUS_FOYER_IMPOSABLES: autresRevenus,
     RFR_N_2_UTILISATEUR: rfr,
-
-    // TVA
     TVA_DEJA_APPLICABLE: state.tva_deja_applicable ?? undefined,
-
-    // Temporalité
-    DATE_CREATION_ACTIVITE: state.date_creation || undefined,
-
-    // Aides
+    DATE_CREATION_ACTIVITE: getDateCreation(state),
     EST_CREATEUR_REPRENEUR: state.est_creation ?? undefined,
     ACRE_DEMANDEE: state.est_creation ?? undefined,
     EST_ELIGIBLE_ACRE_DECLARATIF: state.est_creation ?? undefined,
     ARCE_DEMANDEE: state.percoit_chomage ?? undefined,
     EST_BENEFICIAIRE_ARE: state.percoit_chomage ?? undefined,
-    DROITS_ARE_RESTANTS: droits_are,
-    EST_IMPLANTE_EN_ZFRR: zone === "ZFRR" || zone === "ZFRR_PLUS",
-    EST_IMPLANTE_EN_ZFRR_PLUS: zone === "ZFRR_PLUS",
-    EST_IMPLANTE_EN_QPV: zone === "QPV",
-    OPTION_EXONERATION_ZONE_CHOISIE: zone ?? "aucune",
-
-    // Qualité
+    DROITS_ARE_RESTANTS: droitsAre,
+    LOCALISATION_CODE_POSTAL: state.code_postal || undefined,
+    EST_IMPLANTE_EN_ZFRR: zoneResolue === "ZFRR" || zoneResolue === "ZFRR_PLUS",
+    EST_IMPLANTE_EN_ZFRR_PLUS: zoneResolue === "ZFRR_PLUS",
+    EST_IMPLANTE_EN_QPV: zoneResolue === "QPV",
+    OPTION_EXONERATION_ZONE_CHOISIE: (zoneResolue as OptionExonerationZone) ?? "aucune",
+    SECTEUR_CONVENTIONNEL: secteurConventionnel,
+    EST_CONVENTIONNE: state.secteur_conventionnel !== "" && state.secteur_conventionnel !== "3",
+    EST_ELIGIBLE_AIDE_CPAM:
+      state.secteur_conventionnel === "1" || state.secteur_conventionnel === "2_optam",
     NIVEAU_CERTITUDE_CA: state.certitude_ca,
     OPTION_VFL_DEMANDEE: rfr !== undefined,
   } as UserInput;

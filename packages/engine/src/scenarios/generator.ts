@@ -52,10 +52,11 @@ export function genererScenarios(
 
       // Générer les options VFL si disponibles
       const vflOptions: OptionVFL[] = ["VFL_NON"];
-      if (meta.vfl_disponible && !filtres.vfl_exclu) {
-        if (qual.flags.FLAG_VFL_POSSIBLE) {
-          vflOptions.push("VFL_OUI");
-        }
+      if (
+        meta.vfl_disponible &&
+        (qual.flags.FLAG_VFL_POSSIBLE || input.OPTION_VFL_DEMANDEE === true || filtres.vfl_exclu)
+      ) {
+        vflOptions.push("VFL_OUI");
       }
 
       for (const optVfl of vflOptions) {
@@ -105,9 +106,21 @@ function _isBaseEligible(
   const f = qual.flags;
 
   switch (baseId) {
-    case "G_MBIC_VENTE": return f.FLAG_MICRO_BIC_VENTE_POSSIBLE;
-    case "G_MBIC_SERVICE": return f.FLAG_MICRO_BIC_SERVICE_POSSIBLE;
-    case "G_MBNC": return f.FLAG_MICRO_BNC_POSSIBLE;
+    case "G_MBIC_VENTE":
+      return qual.segment === "generaliste" &&
+        (qual.flags.FLAG_MICRO_BIC_VENTE_POSSIBLE ||
+          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
+          inputCompatibleWithBase(qual, "achat_revente"));
+    case "G_MBIC_SERVICE":
+      return qual.segment === "generaliste" &&
+        (qual.flags.FLAG_MICRO_BIC_SERVICE_POSSIBLE ||
+          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
+          inputCompatibleWithBase(qual, "prestation"));
+    case "G_MBNC":
+      return qual.segment === "generaliste" &&
+        (qual.flags.FLAG_MICRO_BNC_POSSIBLE ||
+          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
+          inputCompatibleWithBase(qual, "liberal"));
     case "G_EI_REEL_BIC_IR": return f.FLAG_EI_REEL_BIC_IR_POSSIBLE;
     case "G_EI_REEL_BIC_IS": return f.FLAG_EI_REEL_BIC_IS_POSSIBLE;
     case "G_EI_REEL_BNC_IR": return f.FLAG_EI_REEL_BNC_IR_POSSIBLE;
@@ -116,32 +129,54 @@ function _isBaseEligible(
     case "G_EURL_IR": return f.FLAG_EURL_IR_POSSIBLE;
     case "G_SASU_IS": return f.FLAG_SASU_IS_POSSIBLE;
     case "G_SASU_IR": return f.FLAG_SASU_IR_POSSIBLE;
-    // Santé (V2 — non implémenté dans V1)
-    case "S_RSPM":
+    case "S_RSPM": return f.FLAG_RSPM_POSSIBLE;
     case "S_MICRO_BNC_SECTEUR_1":
     case "S_MICRO_BNC_SECTEUR_2":
+      return qual.segment === "sante" && f.FLAG_SANTE_MICRO_POSSIBLE;
     case "S_EI_REEL_SECTEUR_1":
     case "S_EI_REEL_SECTEUR_2_OPTAM":
     case "S_EI_REEL_SECTEUR_2_NON_OPTAM":
     case "S_EI_REEL_SECTEUR_3_HORS_CONVENTION":
     case "S_SELARL_IS":
     case "S_SELAS_IS":
-      return qual.segment === "sante";
+      return qual.segment === "sante" && f.FLAG_SANTE_REEL_POSSIBLE;
     // Artiste-auteur (V2)
+    case "A_BNC_MICRO":
+      return qual.segment === "artiste_auteur" && f.FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE;
     case "A_BNC_MICRO_TVA_FRANCHISE":
     case "A_BNC_MICRO_TVA_COLLECTEE":
+      return qual.segment === "artiste_auteur" && f.FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE;
     case "A_BNC_REEL":
-    case "A_TS_ABATTEMENT_FORFAITAIRE":
+      case "A_TS_ABATTEMENT_FORFAITAIRE":
     case "A_TS_FRAIS_REELS":
       return qual.segment === "artiste_auteur";
     // Immobilier (V2)
     case "I_LMNP_MICRO":
+      return qual.segment === "immobilier" && f.FLAG_LMNP_MICRO_POSSIBLE;
     case "I_LMNP_REEL":
-    case "I_LMP":
       return qual.segment === "immobilier";
+    case "I_LMP":
+      return qual.segment === "immobilier" && f.FLAG_LMP_POSSIBLE;
     default:
       return false;
   }
+}
+
+function inputCompatibleWithBase(
+  qual: QualificationResult,
+  sousSegment: "achat_revente" | "prestation" | "liberal"
+): boolean {
+  const actif = Object.entries(qual.flags)
+    .filter(([, value]) => value === true)
+    .map(([key]) => key);
+
+  if (sousSegment === "achat_revente") {
+    return actif.includes("FLAG_EI_REEL_BIC_IR_POSSIBLE");
+  }
+  if (sousSegment === "prestation") {
+    return actif.includes("FLAG_EI_REEL_BIC_IR_POSSIBLE");
+  }
+  return actif.includes("FLAG_EI_REEL_BNC_IR_POSSIBLE");
 }
 
 function _genererCombinaisonsBoosters(
@@ -166,12 +201,12 @@ function _genererCombinaisonsBoosters(
   }
 
   // ZFRR (régime réel obligatoire)
-  if (f.FLAG_ZFRR_POSSIBLE && meta?.zfrr_compatible === true) {
+  if (f.FLAG_ZFRR_POSSIBLE) {
     boosters_disponibles.push("BOOST_ZFRR");
   }
 
   // ZFRR+ (idem mais aussi exonération sociale)
-  if (f.FLAG_ZFRR_PLUS_POSSIBLE && meta?.zfrr_compatible === true) {
+  if (f.FLAG_ZFRR_PLUS_POSSIBLE) {
     boosters_disponibles.push("BOOST_ZFRR_PLUS");
   }
 
@@ -188,7 +223,9 @@ function _genererCombinaisonsBoosters(
   // Générer combinaisons : sans booster + chaque booster unique
   // (pas de combinaisons doubles pour limiter l'explosion combinatoire
   // sauf ACRE+ZFRR qui sont compatibles et ACRE+ARCE)
-  const combinaisons: BoosterId[][] = [[]]; // sans booster
+  const zoneChoisie = input.OPTION_EXONERATION_ZONE_CHOISIE;
+  const onlyZoneMode = zoneChoisie !== undefined && zoneChoisie !== "aucune";
+  const combinaisons: BoosterId[][] = onlyZoneMode ? [] : [[]];
 
   // Chaque booster seul
   for (const b of boosters_disponibles) {
@@ -231,15 +268,17 @@ function _buildScenarioId(
   optVfl: OptionVFL,
   boosters: BoosterId[]
 ): string {
-  const parts = [baseId];
+  const suffixes: string[] = [];
 
-  if (optTva === "TVA_COLLECTEE") parts.push("TVA");
-  if (optVfl === "VFL_OUI") parts.push("VFL");
+  if (optTva === "TVA_COLLECTEE") suffixes.push("TVA_COLLECTEE");
+  if (optVfl === "VFL_OUI") suffixes.push("VFL_OUI");
   if (boosters.length > 0) {
-    parts.push(...boosters.map((b) => b.replace("BOOST_", "")));
+    suffixes.push(...boosters.map((b) => b.replace("BOOST_", "")));
   }
 
-  return parts.join("+");
+  return suffixes.length > 0
+    ? `${baseId}__${suffixes.join("__")}`
+    : baseId;
 }
 
 function _buildMotifAdmission(

@@ -11,16 +11,18 @@
 
 import type { NiveauFiabilite, IntermediairesCalcul } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
-import { f_assiette_sociale_ASU, f_cotisations_tns_bic, f_acre_hors_micro } from "./cotisations-tns.js";
+import { f_assiette_sociale_ASU, f_cotisations_tns_bic, f_cotisations_tns_estimees, f_acre_hors_micro } from "./cotisations-tns.js";
 import { f_cotisations_assimile_salarie } from "./cotisations-assimile.js";
 import { f_ir_attribuable_scenario } from "./ir.js";
 import { f_is, f_dividendes_distribuables, f_dividendes_nets_assimile } from "./is.js";
+import type { EngineLogger } from "../logger.js";
 
 type FP = typeof FiscalParamsType;
 
 export type TypeSociete = "EURL_IS" | "EURL_IR" | "SASU_IS" | "SASU_IR";
 
 export interface InputCalculSociete {
+  scenario_id?: string;
   RECETTES_PRO_RETENUES: number;
   CHARGES_DEDUCTIBLES: number;
   DOTATIONS_AMORTISSEMENTS?: number;
@@ -50,19 +52,25 @@ export interface ResultatCalculSociete {
  */
 export function calculerSociete(
   input: InputCalculSociete,
-  params: FP
+  params: FP,
+  logger?: EngineLogger
 ): ResultatCalculSociete {
   const avertissements: string[] = [];
-  let niveau_fiabilite: NiveauFiabilite = "complet";
+  let niveau_fiabilite: NiveauFiabilite =
+    input.type_societe === "SASU_IS" || input.type_societe === "EURL_IR"
+      ? "estimation"
+      : "complet";
 
   const nb_mois = input.nb_mois_exercice ?? 12;
   const amortissements = input.DOTATIONS_AMORTISSEMENTS ?? 0;
   const isISMode = input.type_societe === "EURL_IS" || input.type_societe === "SASU_IS";
 
   // ── Résultat comptable ────────────────────────────────────────────────────
+  let cout_total_remuneration = input.remuneration_dirigeant;
+  let cotisations_patronales = 0;
   const REMUNERATION_DEDUCTIBLE = input.remuneration_dirigeant;
 
-  const RESULTAT_COMPTABLE = isISMode
+  let RESULTAT_COMPTABLE = isISMode
     ? input.RECETTES_PRO_RETENUES -
       input.CHARGES_DEDUCTIBLES -
       amortissements -
@@ -71,10 +79,10 @@ export function calculerSociete(
       input.CHARGES_DEDUCTIBLES -
       amortissements;
 
-  const RESULTAT_FISCAL_AVANT_EXONERATIONS = RESULTAT_COMPTABLE;
+  let RESULTAT_FISCAL_AVANT_EXONERATIONS = RESULTAT_COMPTABLE;
 
   const exo_fiscale = input.exoneration_fiscale_zone ?? 0;
-  const RESULTAT_FISCAL_APRES_EXONERATIONS = Math.max(
+  let RESULTAT_FISCAL_APRES_EXONERATIONS = Math.max(
     0,
     RESULTAT_FISCAL_AVANT_EXONERATIONS - exo_fiscale
   );
@@ -130,7 +138,9 @@ export function calculerSociete(
       input.autres_revenus_foyer,
       input.autres_charges_foyer,
       input.nombre_parts_fiscales,
-      params
+      params,
+      logger,
+      input.scenario_id
     );
     IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
     if (irResult.avertissement) avertissements.push(irResult.avertissement);
@@ -143,7 +153,9 @@ export function calculerSociete(
       input.autres_revenus_foyer,
       input.autres_charges_foyer,
       input.nombre_parts_fiscales,
-      params
+      params,
+      logger,
+      input.scenario_id
     );
     IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
     if (irResult.avertissement) avertissements.push(irResult.avertissement);
@@ -158,24 +170,47 @@ export function calculerSociete(
   if (input.type_societe === "SASU_IS" || input.type_societe === "SASU_IR") {
     // Assimilé-salarié
     const result = f_cotisations_assimile_salarie(REMUNERATION_DEDUCTIBLE, params);
-    COTISATIONS_SOCIALES_BRUTES = result.cotisations_totales;
+    cotisations_patronales = result.cotisations_patronales;
+    cout_total_remuneration = result.cout_total_remuneration;
+    COTISATIONS_SOCIALES_BRUTES = result.cotisations_salariales;
     REMUNERATION_NETTE_DIRIGEANT = result.remuneration_nette;
     ASSIETTE_SOCIALE_BRUTE = REMUNERATION_DEDUCTIBLE;
+    if (isISMode) {
+      RESULTAT_COMPTABLE =
+        input.RECETTES_PRO_RETENUES -
+        input.CHARGES_DEDUCTIBLES -
+        amortissements -
+        cout_total_remuneration;
+    }
   } else {
     // TNS — EURL IS ou EURL IR
+    const dividendesTns = isISMode ? (input.dividendes_envisages ?? 0) : 0;
     const assiette_base = isISMode
-      ? REMUNERATION_DEDUCTIBLE
+      ? REMUNERATION_DEDUCTIBLE + dividendesTns
       : RESULTAT_FISCAL_AVANT_EXONERATIONS;
 
-    const asuResult = f_assiette_sociale_ASU(assiette_base, params);
+    const asuResult = f_assiette_sociale_ASU(
+      assiette_base,
+      params,
+      logger,
+      input.scenario_id
+    );
     ASSIETTE_SOCIALE_BRUTE = asuResult.assiette;
     if (asuResult.hypothese) {
       avertissements.push(asuResult.hypothese);
       niveau_fiabilite = "partiel";
     }
 
-    const cotisResult = f_cotisations_tns_bic(ASSIETTE_SOCIALE_BRUTE, params);
-    COTISATIONS_SOCIALES_BRUTES = cotisResult.cotisations_brutes;
+    const cotisResult = f_cotisations_tns_bic(
+      ASSIETTE_SOCIALE_BRUTE,
+      params,
+      logger,
+      input.scenario_id
+    );
+    COTISATIONS_SOCIALES_BRUTES = f_cotisations_tns_estimees(
+      ASSIETTE_SOCIALE_BRUTE,
+      params
+    );
     if (cotisResult.cotisations_minimales_appliquees && cotisResult.avertissement_minimales) {
       avertissements.push(cotisResult.avertissement_minimales);
     }
@@ -183,6 +218,58 @@ export function calculerSociete(
       ? REMUNERATION_DEDUCTIBLE - COTISATIONS_SOCIALES_BRUTES
       : 0;
   }
+
+  RESULTAT_FISCAL_AVANT_EXONERATIONS = RESULTAT_COMPTABLE;
+  RESULTAT_FISCAL_APRES_EXONERATIONS = Math.max(
+    0,
+    RESULTAT_FISCAL_AVANT_EXONERATIONS - exo_fiscale
+  );
+
+  IS_DU_SCENARIO = 0;
+  IR_ATTRIBUABLE_SCENARIO = 0;
+  DIVIDENDES_DISTRIBUABLES = 0;
+  DIVIDENDES_NETS_PERCUS = 0;
+  BASE_IR_SCENARIO = 0;
+
+  if (isISMode) {
+    const isResult = f_is(RESULTAT_FISCAL_APRES_EXONERATIONS, params, nb_mois);
+    IS_DU_SCENARIO = isResult.is_du;
+
+    const resultat_apres_is = Math.max(
+      0,
+      RESULTAT_FISCAL_APRES_EXONERATIONS - IS_DU_SCENARIO
+    );
+    DIVIDENDES_DISTRIBUABLES = f_dividendes_distribuables(resultat_apres_is);
+    const dividendes_effectifs = Math.min(
+      input.dividendes_envisages ?? DIVIDENDES_DISTRIBUABLES,
+      DIVIDENDES_DISTRIBUABLES
+    );
+
+    if (input.type_societe === "SASU_IS") {
+      DIVIDENDES_NETS_PERCUS = f_dividendes_nets_assimile(dividendes_effectifs, params);
+    } else {
+      const ps_params = params.social.CFG_REGLES_ASSIETTE_SOCIALE_DIVIDENDES_ASSIMILE;
+      DIVIDENDES_NETS_PERCUS = dividendes_effectifs * (1 - ps_params.taux_prelevements_sociaux_2026);
+      niveau_fiabilite = "estimation";
+    }
+
+    BASE_IR_SCENARIO = REMUNERATION_DEDUCTIBLE + dividendes_effectifs;
+  } else {
+    BASE_IR_SCENARIO = RESULTAT_FISCAL_APRES_EXONERATIONS;
+  }
+
+  const irResult = f_ir_attribuable_scenario(
+    BASE_IR_SCENARIO,
+    input.autres_revenus_foyer,
+    input.autres_charges_foyer,
+    input.nombre_parts_fiscales,
+    params,
+    logger,
+    input.scenario_id
+  );
+  IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
+  if (irResult.avertissement) avertissements.push(irResult.avertissement);
+  if (irResult.mode === "estimation") niveau_fiabilite = "estimation";
 
   // ACRE
   let REDUCTION_ACRE = 0;

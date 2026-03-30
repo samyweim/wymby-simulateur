@@ -13,7 +13,12 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run --root ../..",
+    "test:watch": "vitest --root ../..",
+    "test:cases": "vitest run --root ../.. packages/engine/src/tests/test_cases_2026.test.ts",
+    "test:cases:verbose": "vitest run --root ../.. packages/engine/src/tests/test_cases_2026.test.ts --reporter=verbose",
+    "diag": "tsx src/tests/run_diagnostics.ts",
+    "diag:trace": "tsx src/tests/run_diagnostics.ts --trace"
   },
   "dependencies": {
     "@wymby/types": "*",

@@ -35,3 +35,49 @@
   gap: 0.75rem;
   align-items: stretch;
 }
+
+.charges-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.charges-detail-intro {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.field-sub {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.field-sub:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.field-notice,
+.field-zone-detected {
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+}
+
+.field-notice {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.field-zone-detected {
+  margin-top: 0.5rem;
+  background: var(--sage-light);
+  border: 1px solid var(--sage-mid);
+  color: var(--sage);
+}

@@ -38,7 +38,7 @@ export function qualifierProfil(
   const avertissements: string[] = [];
 
   // ── Segment ────────────────────────────────────────────────────────────────
-  const segment: SegmentActivite = input.SEGMENT_ACTIVITE;
+  const segment = _normalizeSegment(input.SEGMENT_ACTIVITE);
 
   logger.info(2, "Qualification segment", { variable: "segment", valeur: segment });
 
@@ -52,12 +52,16 @@ export function qualifierProfil(
   );
   const seuil_tva_tolerance = _getSeuilTVATolerance(input, params, norm.CA_HT_RETENU);
 
-  if (norm.CA_HT_RETENU > seuil_tva_tolerance) {
+  if (input.DATE_DEPASSEMENT_TVA_DECLARATIVE) {
     regime_tva = "TVA_COLLECTEE";
     avertissements.push(
-      `CA (${norm.CA_HT_RETENU} €) dépasse le seuil majoré de tolérance TVA (${seuil_tva_tolerance} €) : ` +
-        "passage TVA collectée immédiat selon règle Loi Midy 2025."
+      `DEPASSEMENT_SEUIL_TVA_MAJORE_${_getTvaLabelSuffix(input)}`,
     );
+    avertissements.push(
+      `TVA applicable dès le ${new Date(input.DATE_DEPASSEMENT_TVA_DECLARATIVE).toLocaleDateString("fr-FR")} après dépassement déclaratif du seuil majoré.`
+    );
+  } else if (input.TVA_DEJA_APPLICABLE === true) {
+    regime_tva = "TVA_COLLECTEE";
   } else if (norm.CA_HT_RETENU > seuil_tva) {
     // Dépassement du seuil de base mais pas du seuil majoré
     avertissements.push(
@@ -94,10 +98,13 @@ export function qualifierProfil(
     ca <= microParams.CFG_SEUIL_CA_MICRO_BNC;
 
   const FLAG_DEPASSEMENT_SEUIL_MICRO =
-    !FLAG_MICRO_BIC_VENTE_POSSIBLE &&
-    !FLAG_MICRO_BIC_SERVICE_POSSIBLE &&
-    !FLAG_MICRO_BNC_POSSIBLE &&
-    segment === "generaliste";
+    segment === "generaliste" &&
+    ca > _getSeuilMicroApplicable(input, params);
+
+  if (FLAG_DEPASSEMENT_SEUIL_MICRO) {
+    avertissements.push(`DEPASSEMENT_SEUIL_MICRO_${_getMicroLabelSuffix(input)}`);
+    avertissements.push("BASCULEMENT_REEL_OBLIGE");
+  }
 
   logger.calc(2, "Qualification micro", "FLAG_MICRO_BIC_VENTE_POSSIBLE", FLAG_MICRO_BIC_VENTE_POSSIBLE);
   logger.calc(2, "Qualification micro", "FLAG_MICRO_BIC_SERVICE_POSSIBLE", FLAG_MICRO_BIC_SERVICE_POSSIBLE);
@@ -150,6 +157,38 @@ export function qualifierProfil(
     FLAG_SASU_IS_POSSIBLE &&
     _isIRTemporaireValide(input, params);
 
+  const recettesImmobilieres = input.RECETTES_LOCATION_MEUBLEE ?? input.CA_ENCAISSE_UTILISATEUR;
+  const autresRevenusActivite = input.AUTRES_REVENUS_ACTIVITE_FOYER ?? 0;
+  const FLAG_RSPM_POSSIBLE =
+    segment === "sante" &&
+    input.SOUS_SEGMENT_ACTIVITE === "medecin" &&
+    recettesImmobilieres <= (params.social.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0);
+  const FLAG_SANTE_MICRO_POSSIBLE =
+    segment === "sante" && ca <= microParams.CFG_SEUIL_CA_MICRO_BNC;
+  const FLAG_SANTE_REEL_POSSIBLE = segment === "sante";
+  const FLAG_AIDE_CPAM_POSSIBLE =
+    segment === "sante" &&
+    (input.EST_ELIGIBLE_AIDE_CPAM === true ||
+      input.SECTEUR_CONVENTIONNEL === "secteur_1" ||
+      input.SECTEUR_CONVENTIONNEL === "secteur_2_optam");
+  const FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE =
+    segment === "artiste_auteur" &&
+    (input.MODE_DECLARATION_ARTISTE_AUTEUR === "BNC" ||
+      input.MODE_DECLARATION_ARTISTE_AUTEUR === undefined);
+  const FLAG_ARTISTE_AUTEUR_TS_POSSIBLE =
+    segment === "artiste_auteur" && input.MODE_DECLARATION_ARTISTE_AUTEUR === "TS";
+  const FLAG_RAAP_APPLICABLE =
+    segment === "artiste_auteur" &&
+    (input.EST_REDEVABLE_RAAP === true || ca >= params.culture.CFG_SEUIL_RAAP);
+  const FLAG_LMP_POSSIBLE =
+    segment === "immobilier" &&
+    recettesImmobilieres >= params.immobilier.CFG_SEUIL_LMP_RECETTES &&
+    recettesImmobilieres > autresRevenusActivite;
+  const FLAG_LMNP_MICRO_POSSIBLE =
+    segment === "immobilier" &&
+    FLAG_LMP_POSSIBLE === false &&
+    recettesImmobilieres <= params.micro.CFG_SEUIL_CA_MICRO_LMNP_CLASSIQUE;
+
   if (FLAG_EURL_IR_POSSIBLE || FLAG_SASU_IR_POSSIBLE) {
     elements_a_confirmer.push(
       "Régime IR temporaire (EURL/SASU) : durée limitée à 5 exercices. " +
@@ -166,8 +205,10 @@ export function qualifierProfil(
   );
 
   // ── TVA et dépassement ────────────────────────────────────────────────────
-  const FLAG_TVA_APPLICABLE = regime_tva === "TVA_COLLECTEE";
-  const FLAG_DEPASSEMENT_SEUIL_TVA = ca > seuil_tva;
+  const FLAG_TVA_APPLICABLE =
+    input.TVA_DEJA_APPLICABLE === true || input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined;
+  const FLAG_DEPASSEMENT_SEUIL_TVA =
+    input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined || ca > seuil_tva_tolerance;
   const FLAG_CA_SAISI_EN_TTC = input.INPUT_MODE_CA === "TTC";
 
   // ── ACRE ──────────────────────────────────────────────────────────────────
@@ -216,6 +257,7 @@ export function qualifierProfil(
   const FLAG_TAXE_PUMA_APPLICABLE = _isPumaPotentielle(input, params);
 
   if (FLAG_TAXE_PUMA_APPLICABLE) {
+    avertissements.push("TAXE_PUMA_POTENTIELLEMENT_APPLICABLE");
     avertissements.push(
       "Taxe PUMa (cotisation subsidiaire maladie) potentiellement applicable. " +
         "Calcul exact à confirmer avec un expert. Fiabilité marquée 'partiel' pour les scénarios concernés."
@@ -246,6 +288,15 @@ export function qualifierProfil(
     FLAG_EURL_IR_POSSIBLE,
     FLAG_SASU_IS_POSSIBLE,
     FLAG_SASU_IR_POSSIBLE,
+    FLAG_RSPM_POSSIBLE,
+    FLAG_SANTE_MICRO_POSSIBLE,
+    FLAG_SANTE_REEL_POSSIBLE,
+    FLAG_AIDE_CPAM_POSSIBLE,
+    FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE,
+    FLAG_ARTISTE_AUTEUR_TS_POSSIBLE,
+    FLAG_RAAP_APPLICABLE,
+    FLAG_LMNP_MICRO_POSSIBLE,
+    FLAG_LMP_POSSIBLE,
     FLAG_ACRE_POSSIBLE,
     FLAG_ARCE_POSSIBLE,
     FLAG_ZFRR_POSSIBLE,
@@ -273,6 +324,18 @@ export function qualifierProfil(
     elements_a_confirmer,
     avertissements,
   };
+}
+
+function _normalizeSegment(segment: UserInput["SEGMENT_ACTIVITE"] | string): SegmentActivite {
+  const normalise = String(segment)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (normalise === "sante") return "sante";
+  if (normalise === "artiste_auteur") return "artiste_auteur";
+  if (normalise === "immobilier") return "immobilier";
+  return "generaliste";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,6 +385,7 @@ function _qualifierVFL(
   }
 
   if (rfr > seuilRFR) {
+    avertissements.push("VFL_INTERDIT_RFR_DEPASSE");
     avertissements.push(
       `RFR N-2 (${rfr} €) dépasse le seuil VFL (${seuilRFR} € pour ${nbParts} parts) : ` +
         "option Versement Libératoire exclue (filtre X03)."
@@ -330,6 +394,28 @@ function _qualifierVFL(
   }
 
   return { FLAG_VFL_POSSIBLE: true, FLAG_VFL_INTERDIT: false };
+}
+
+function _getSeuilMicroApplicable(input: UserInput, params: FP): number {
+  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") {
+    return params.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE;
+  }
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") {
+    return params.micro.CFG_SEUIL_CA_MICRO_BNC;
+  }
+  return params.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
+}
+
+function _getMicroLabelSuffix(input: UserInput): string {
+  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
+  return "BIC_SERVICE";
+}
+
+function _getTvaLabelSuffix(input: UserInput): string {
+  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
+  return "BIC_SERVICE";
 }
 
 function _isIRTemporaireValide(input: UserInput, params: FP): boolean {
@@ -398,11 +484,12 @@ function _isPumaPotentielle(input: UserInput, params: FP): boolean {
 
   const autresRevenus = input.AUTRES_REVENUS_FOYER_IMPOSABLES ?? 0;
   const ca = input.CA_ENCAISSE_UTILISATEUR;
+  const revenuActiviteEstime = ca * (1 - params.social.CFG_TAUX_SOCIAL_MICRO_BNC_SSI);
 
   // Condition : revenus activité < seuil_activite ET revenus capital > seuil_capital
   const pumaObj = seuilPuma as unknown as Record<string, number>;
-  const seuilActivite = pumaObj["seuil_revenus_activite"] ?? 0;
-  const seuilCapital = pumaObj["seuil_revenus_patrimoine"] ?? 0;
+  const seuilActivite = pumaObj["seuil_activite_insuffisante"] ?? 0;
+  const seuilCapital = pumaObj["seuil_patrimoine_declencheur"] ?? 0;
 
-  return ca < seuilActivite && autresRevenus > seuilCapital;
+  return revenuActiviteEstime < seuilActivite && autresRevenus > seuilCapital;
 }

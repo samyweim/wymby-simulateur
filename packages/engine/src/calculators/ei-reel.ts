@@ -6,15 +6,17 @@
 
 import type { NiveauFiabilite, IntermediairesCalcul } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
-import { f_assiette_sociale_ASU, f_cotisations_tns_bic, f_acre_hors_micro } from "./cotisations-tns.js";
+import { f_assiette_sociale_ASU, f_cotisations_tns_bic, f_cotisations_tns_estimees, f_acre_hors_micro } from "./cotisations-tns.js";
 import { f_ir_attribuable_scenario } from "./ir.js";
 import { f_is } from "./is.js";
+import type { EngineLogger } from "../logger.js";
 
 type FP = typeof FiscalParamsType;
 
 export type TypeEIReel = "BIC_IR" | "BIC_IS" | "BNC_IR" | "BNC_IS";
 
 export interface InputCalculEIReel {
+  scenario_id?: string;
   RECETTES_PRO_RETENUES: number;
   CHARGES_DECAISSEES: number;
   CHARGES_DEDUCTIBLES: number;
@@ -45,7 +47,8 @@ export interface ResultatCalculEIReel {
  */
 export function calculerEIReel(
   input: InputCalculEIReel,
-  params: FP
+  params: FP,
+  logger?: EngineLogger
 ): ResultatCalculEIReel {
   const avertissements: string[] = [];
   let niveau_fiabilite: NiveauFiabilite = "complet";
@@ -88,9 +91,14 @@ export function calculerEIReel(
   // Variables concernées : CFG_REGLES_ASSIETTE_SOCIALE_UNIQUE_IR
   // Impact : assiette cotisations EI réel IR — entrée en vigueur avril 2026
   // Décision requise : confirmer si la réforme ASU s'applique à toute l'année 2026 ou au prorata
-  const asuResult = f_assiette_sociale_ASU(RESULTAT_FISCAL_AVANT_EXONERATIONS, params);
+  const asuResult = f_assiette_sociale_ASU(
+    RESULTAT_FISCAL_AVANT_EXONERATIONS,
+    params,
+    logger,
+    input.scenario_id
+  );
   const ASSIETTE_SOCIALE_BRUTE = isISMode
-    ? REMUNERATION_DEDUCTIBLE // Pour EI IS, assiette = rémunération du dirigeant
+    ? f_assiette_sociale_ASU(REMUNERATION_DEDUCTIBLE, params, logger, input.scenario_id).assiette
     : asuResult.assiette;
 
   if (asuResult.hypothese) {
@@ -99,12 +107,22 @@ export function calculerEIReel(
   }
 
   // ── Cotisations sociales ──────────────────────────────────────────────────
-  const cotisResult = f_cotisations_tns_bic(ASSIETTE_SOCIALE_BRUTE, params);
-  let COTISATIONS_SOCIALES_BRUTES = cotisResult.cotisations_brutes;
+  const cotisResult = f_cotisations_tns_bic(
+    ASSIETTE_SOCIALE_BRUTE,
+    params,
+    logger,
+    input.scenario_id
+  );
+  let COTISATIONS_SOCIALES_BRUTES = f_cotisations_tns_estimees(
+    ASSIETTE_SOCIALE_BRUTE,
+    params
+  );
 
   if (cotisResult.cotisations_minimales_appliquees && cotisResult.avertissement_minimales) {
     avertissements.push(cotisResult.avertissement_minimales);
   }
+
+  niveau_fiabilite = "estimation";
 
   // ── ACRE ─────────────────────────────────────────────────────────────────
   let REDUCTION_ACRE = 0;
@@ -141,7 +159,9 @@ export function calculerEIReel(
       input.autres_revenus_foyer,
       input.autres_charges_foyer,
       input.nombre_parts_fiscales,
-      params
+      params,
+      logger,
+      input.scenario_id
     );
     IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
     if (irResult.avertissement) avertissements.push(irResult.avertissement);
@@ -157,19 +177,21 @@ export function calculerEIReel(
       input.autres_revenus_foyer,
       input.autres_charges_foyer,
       input.nombre_parts_fiscales,
-      params
+      params,
+      logger,
+      input.scenario_id
     );
     IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
     if (irResult.avertissement) avertissements.push(irResult.avertissement);
   }
 
   // ── Indicateurs finaux ────────────────────────────────────────────────────
-  const NET_AVANT_IR =
-    input.RECETTES_PRO_RETENUES -
-    input.CHARGES_DECAISSEES -
-    COTISATIONS_SOCIALES_NETTES -
-    input.TVA_NETTE_DUE -
-    IS_DU_SCENARIO;
+  const NET_AVANT_IR = isISMode
+    ? REMUNERATION_DEDUCTIBLE - COTISATIONS_SOCIALES_NETTES
+    : input.RECETTES_PRO_RETENUES -
+      input.CHARGES_DECAISSEES -
+      COTISATIONS_SOCIALES_NETTES -
+      input.TVA_NETTE_DUE;
 
   const NET_APRES_IR = NET_AVANT_IR - IR_ATTRIBUABLE_SCENARIO;
 

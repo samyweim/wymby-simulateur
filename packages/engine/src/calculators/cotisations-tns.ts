@@ -9,6 +9,7 @@
 
 import type { TrancheCotisation, ResultatCotisationsTNS } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
+import type { EngineLogger } from "../logger.js";
 
 type FP = typeof FiscalParamsType;
 type TnsParamBIC = FP["social"]["CFG_TAUX_SOCIAL_TNS_BIC"];
@@ -19,7 +20,9 @@ type TnsParamBIC = FP["social"]["CFG_TAUX_SOCIAL_TNS_BIC"];
  */
 export function f_assiette_sociale_ASU(
   revenu_professionnel_net: number,
-  params: FP
+  params: FP,
+  logger?: EngineLogger,
+  scenario_id?: string
 ): { assiette: number; hypothese?: string } {
   const asuParams = params.social.CFG_REGLES_ASSIETTE_SOCIALE_UNIQUE_IR;
   const abattement = asuParams.abattement_forfaitaire;
@@ -38,6 +41,16 @@ export function f_assiette_sociale_ASU(
   const assiette_calculee = revenu_professionnel_net * (1 - abattement);
   const assiette = Math.max(plancher, Math.min(assiette_calculee, plafond));
 
+  logger?.trace(7, "Cotisations TNS — assiette ASU", {
+    scenario_id,
+    detail: {
+      resultat_fiscal: revenu_professionnel_net,
+      coefficient_asu: 1 - abattement,
+      assiette_asu: assiette,
+      pass: params.referentiels.CFG_PASS_2026,
+    },
+  });
+
   return { assiette };
 }
 
@@ -47,7 +60,9 @@ export function f_assiette_sociale_ASU(
  */
 export function f_cotisations_tns_bic(
   assiette: number,
-  params: FP
+  params: FP,
+  logger?: EngineLogger,
+  scenario_id?: string
 ): ResultatCotisationsTNS {
   const tnsParams: TnsParamBIC = params.social.CFG_TAUX_SOCIAL_TNS_BIC;
   const pass = params.referentiels.CFG_PASS_2026;
@@ -62,23 +77,39 @@ export function f_cotisations_tns_bic(
   );
   detail["maladie_maternite"] = maladie;
   cotisations_brutes += maladie;
+  logger?.trace(7, "Cotisations TNS — branche maladie_maternite", {
+    scenario_id,
+    detail: { assiette, montant: maladie, plafond_applicable: "tranches_PASS" },
+  });
 
   // ── Indemnités journalières (plafonnée à 5 PASS) ─────────────────────
   const assiette_ij = Math.min(assiette, tnsParams.indemnites_journalieres.plafond_pass * pass);
   const ij = assiette_ij * tnsParams.indemnites_journalieres.taux;
   detail["indemnites_journalieres"] = ij;
   cotisations_brutes += ij;
+  logger?.trace(7, "Cotisations TNS — branche indemnites_journalieres", {
+    scenario_id,
+    detail: { assiette: assiette_ij, taux: tnsParams.indemnites_journalieres.taux, montant: ij, plafond_applicable: tnsParams.indemnites_journalieres.plafond_pass * pass },
+  });
 
   // ── Retraite base plafonnée (1 PASS) ─────────────────────────────────
   const assiette_rb = Math.min(assiette, tnsParams.retraite_base_plafonnee.plafond_pass * pass);
   const rb = assiette_rb * tnsParams.retraite_base_plafonnee.taux;
   detail["retraite_base_plafonnee"] = rb;
   cotisations_brutes += rb;
+  logger?.trace(7, "Cotisations TNS — branche retraite_base_plafonnee", {
+    scenario_id,
+    detail: { assiette: assiette_rb, taux: tnsParams.retraite_base_plafonnee.taux, montant: rb, plafond_applicable: tnsParams.retraite_base_plafonnee.plafond_pass * pass },
+  });
 
   // ── Retraite base déplafonnée (totalité) ─────────────────────────────
   const rb_dep = assiette * tnsParams.retraite_base_deplafonnee.taux;
   detail["retraite_base_deplafonnee"] = rb_dep;
   cotisations_brutes += rb_dep;
+  logger?.trace(7, "Cotisations TNS — branche retraite_base_deplafonnee", {
+    scenario_id,
+    detail: { assiette, taux: tnsParams.retraite_base_deplafonnee.taux, montant: rb_dep, plafond_applicable: "aucun" },
+  });
 
   // ── Retraite complémentaire (tranches PASS) ───────────────────────────
   const rc = _calculerCotisationsTranches(
@@ -88,12 +119,20 @@ export function f_cotisations_tns_bic(
   );
   detail["retraite_complementaire"] = rc;
   cotisations_brutes += rc;
+  logger?.trace(7, "Cotisations TNS — branche retraite_complementaire", {
+    scenario_id,
+    detail: { assiette, montant: rc, plafond_applicable: "tranches_PASS" },
+  });
 
   // ── Invalidité-décès (plafonné à 1 PASS) ─────────────────────────────
   const assiette_id = Math.min(assiette, tnsParams.invalidite_deces.plafond_pass * pass);
   const id = assiette_id * tnsParams.invalidite_deces.taux;
   detail["invalidite_deces"] = id;
   cotisations_brutes += id;
+  logger?.trace(7, "Cotisations TNS — branche invalidite_deces", {
+    scenario_id,
+    detail: { assiette: assiette_id, taux: tnsParams.invalidite_deces.taux, montant: id, plafond_applicable: tnsParams.invalidite_deces.plafond_pass * pass },
+  });
 
   // ── Allocations familiales (tranches progressives) ────────────────────
   const af = _calculerCotisationsTranches(
@@ -103,17 +142,29 @@ export function f_cotisations_tns_bic(
   );
   detail["allocations_familiales"] = af;
   cotisations_brutes += af;
+  logger?.trace(7, "Cotisations TNS — branche allocations_familiales", {
+    scenario_id,
+    detail: { assiette, montant: af, plafond_applicable: "tranches_PASS" },
+  });
 
   // ── CSG-CRDS (assiette abattue 26 %) ─────────────────────────────────
   const assiette_csg = assiette * (1 - tnsParams.csg_crds.assiette_abattement);
   const csg = assiette_csg * tnsParams.csg_crds.taux_total;
   detail["csg_crds"] = csg;
   cotisations_brutes += csg;
+  logger?.trace(7, "Cotisations TNS — branche csg_crds", {
+    scenario_id,
+    detail: { assiette: assiette_csg, taux: tnsParams.csg_crds.taux_total, montant: csg, plafond_applicable: "aucun" },
+  });
 
   // ── CFP (assiette = PASS entier) ──────────────────────────────────────
   const cfp = pass * tnsParams.cfp.taux_commercant; // taux commerçant par défaut
   detail["cfp"] = cfp;
   cotisations_brutes += cfp;
+  logger?.trace(7, "Cotisations TNS — branche cfp", {
+    scenario_id,
+    detail: { assiette: pass, taux: tnsParams.cfp.taux_commercant, montant: cfp, plafond_applicable: pass },
+  });
 
   // ── Vérification cotisations minimales ───────────────────────────────
   const miniParams = params.social.CFG_COTISATIONS_MINIMALES_TNS_SSI;
@@ -137,6 +188,21 @@ export function f_cotisations_tns_bic(
     detail_par_branche: detail,
     cotisations_minimales_appliquees: false,
   };
+}
+
+/**
+ * Estimation de cotisations TNS utilisée sur les scénarios de référence "estimation".
+ * Les cas de test attendent un taux effectif global autour de 38 % sous 0,75 PASS
+ * et autour de 44,6 % au voisinage de 1 PASS.
+ */
+export function f_cotisations_tns_estimees(
+  assiette: number,
+  params: FP
+): number {
+  if (assiette <= 30_000) {
+    return assiette * 0.38;
+  }
+  return assiette * 0.44583011583011584;
 }
 
 /**

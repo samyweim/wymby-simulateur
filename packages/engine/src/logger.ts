@@ -1,81 +1,103 @@
-/**
- * logger.ts — Système de logs DEBUG structurés
- *
- * Activé uniquement si debugMode = true est passé à runEngine().
- * En production, zéro console.log émis.
- * Chaque log est un objet JSON typé EngineLog — jamais une chaîne libre.
- */
+export type LogLevel = "info" | "debug" | "trace" | "warn" | "error";
 
-import type { EngineLog, LogLevel } from "@wymby/types";
+export interface EngineLog {
+  step: number;
+  level: LogLevel;
+  message: string;
+  scenario_id?: string;
+  detail?: Record<string, unknown>;
+  timestamp_ms: number;
+}
 
-export class EngineLogger {
-  private readonly _logs: EngineLog[] = [];
-  private readonly _debug: boolean;
+export interface LogContext {
+  scenario_id?: string;
+  detail?: Record<string, unknown>;
+  [key: string]: unknown;
+}
 
-  constructor(debug: boolean) {
-    this._debug = debug;
+export interface EngineLogger {
+  info(step: number, msg: string, ctx?: LogContext): void;
+  debug(step: number, msg: string, ctx?: LogContext): void;
+  trace(step: number, msg: string, ctx?: LogContext): void;
+  warn(step: number, msg: string, ctx?: LogContext): void;
+  error(step: number, msg: string, ctx?: LogContext): void;
+  calc(
+    step: number,
+    msg: string,
+    variable: string,
+    valeur: number | boolean | string,
+    detail?: Record<string, unknown>,
+    scenario_id?: string
+  ): void;
+  getLogs(): EngineLog[];
+}
+
+class EngineLoggerImpl implements EngineLogger {
+  private readonly logs: EngineLog[] = [];
+  private readonly enabled: boolean;
+
+  constructor(enabled: boolean) {
+    this.enabled = enabled;
   }
 
-  log(
-    etape: number,
-    label: string,
-    level: LogLevel,
-    payload?: Omit<EngineLog, "etape" | "label" | "level" | "timestamp">
-  ): void {
-    if (!this._debug) return;
+  private push(step: number, level: LogLevel, message: string, ctx?: LogContext): void {
+    if (!this.enabled) return;
 
-    const entry: EngineLog = {
-      etape,
-      label,
+    const { scenario_id, detail, ...rest } = ctx ?? {};
+    const mergedDetail =
+      detail || Object.keys(rest).length > 0
+        ? { ...(detail ?? {}), ...rest }
+        : undefined;
+
+    this.logs.push({
+      step,
       level,
-      timestamp: new Date().toISOString(),
-      ...payload,
-    };
-
-    this._logs.push(entry);
+      message,
+      scenario_id,
+      detail: mergedDetail,
+      timestamp_ms: Date.now(),
+    });
   }
 
-  info(
-    etape: number,
-    label: string,
-    payload?: Omit<EngineLog, "etape" | "label" | "level" | "timestamp">
-  ): void {
-    this.log(etape, label, "info", payload);
+  info(step: number, msg: string, ctx?: LogContext): void {
+    this.push(step, "info", msg, ctx);
   }
 
-  warn(
-    etape: number,
-    label: string,
-    payload?: Omit<EngineLog, "etape" | "label" | "level" | "timestamp">
-  ): void {
-    this.log(etape, label, "warn", payload);
+  debug(step: number, msg: string, ctx?: LogContext): void {
+    this.push(step, "debug", msg, ctx);
   }
 
-  error(
-    etape: number,
-    label: string,
-    payload?: Omit<EngineLog, "etape" | "label" | "level" | "timestamp">
-  ): void {
-    this.log(etape, label, "error", payload);
+  trace(step: number, msg: string, ctx?: LogContext): void {
+    this.push(step, "trace", msg, ctx);
+  }
+
+  warn(step: number, msg: string, ctx?: LogContext): void {
+    this.push(step, "warn", msg, ctx);
+  }
+
+  error(step: number, msg: string, ctx?: LogContext): void {
+    this.push(step, "error", msg, ctx);
   }
 
   calc(
-    etape: number,
-    label: string,
+    step: number,
+    msg: string,
     variable: string,
     valeur: number | boolean | string,
     detail?: Record<string, unknown>,
     scenario_id?: string
   ): void {
-    this.log(etape, label, "calc", { variable, valeur, detail, scenario_id });
+    this.debug(step, msg, {
+      scenario_id,
+      detail: { variable, valeur, ...detail },
+    });
   }
 
   getLogs(): EngineLog[] {
-    return [...this._logs];
+    return [...this.logs];
   }
 }
 
-/** Crée un logger no-op pour la production */
 export function createLogger(debug: boolean): EngineLogger {
-  return new EngineLogger(debug);
+  return new EngineLoggerImpl(debug);
 }

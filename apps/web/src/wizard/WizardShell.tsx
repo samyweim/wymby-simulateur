@@ -18,7 +18,14 @@ interface Props {
 const STEP_LABELS = ["Activité", "Revenus", "Situation", "Aides"];
 
 function canAdvance(step: number, state: WizardState): boolean {
-  if (step === 0) return state.type_activite !== "";
+  if (step === 0) {
+    const santeOk =
+      !["sante_medecin", "sante_paramedicale"].includes(state.type_activite) ||
+      state.secteur_conventionnel !== "";
+    const activiteOk =
+      state.est_deja_en_activite !== true || state.annee_debut_activite !== "";
+    return state.type_activite !== "" && santeOk && activiteOk;
+  }
   if (step === 1) return state.ca_annuel !== "" && parseFloat(state.ca_annuel) >= 0;
   if (step === 2) return state.situation_familiale !== "";
   return true;

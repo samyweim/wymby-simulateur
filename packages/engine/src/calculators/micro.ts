@@ -7,6 +7,7 @@
 import type { NiveauFiabilite, IntermediairesCalcul } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
 import { f_ir_attribuable_scenario } from "./ir.js";
+import type { EngineLogger } from "../logger.js";
 
 type FP = typeof FiscalParamsType;
 
@@ -16,13 +17,15 @@ export type TypeMicro =
   | "BNC";
 
 export interface InputCalculMicro {
+  scenario_id?: string;
   CA_HT_RETENU: number;
   TVA_NETTE_DUE: number;
   type_micro: TypeMicro;
   option_vfl: boolean;
   acre_active: boolean;
   date_creation?: Date;
-  exoneration_zone?: number;
+  exoneration_fiscale_zone?: number;
+  exoneration_sociale_zone?: number;
   autres_revenus_foyer?: number;
   autres_charges_foyer?: number;
   nombre_parts_fiscales: number;
@@ -41,7 +44,8 @@ export interface ResultatCalculMicro {
  */
 export function calculerMicro(
   input: InputCalculMicro,
-  params: FP
+  params: FP,
+  logger?: EngineLogger
 ): ResultatCalculMicro {
   const avertissements: string[] = [];
   let niveau_fiabilite: NiveauFiabilite = "complet";
@@ -55,11 +59,29 @@ export function calculerMicro(
     CA_HT_RETENU * taux_abattement,
     min_abattement
   );
+  logger?.trace(7, "Calcul micro — abattement fiscal", {
+    scenario_id: input.scenario_id,
+    detail: {
+      CA_HT_RETENU,
+      taux_abattement,
+      abattement_montant: ABATTEMENT_FORFAITAIRE,
+      abattement_plancher: min_abattement,
+      base_ir_avant_vfl: Math.max(0, CA_HT_RETENU - ABATTEMENT_FORFAITAIRE),
+    },
+  });
 
   // ── Cotisations sociales brutes ───────────────────────────────────────────
   const taux_social = _getTauxSocialMicro(input.type_micro, params);
   const ASSIETTE_SOCIALE_BRUTE = CA_HT_RETENU;
   let COTISATIONS_SOCIALES_BRUTES = ASSIETTE_SOCIALE_BRUTE * taux_social;
+  logger?.trace(7, "Calcul micro — assiette cotisations", {
+    scenario_id: input.scenario_id,
+    detail: {
+      CA_HT_RETENU,
+      taux_cotisations: taux_social,
+      cotisations_brutes: COTISATIONS_SOCIALES_BRUTES,
+    },
+  });
 
   // ── Réduction ACRE ────────────────────────────────────────────────────────
   let REDUCTION_ACRE = 0;
@@ -76,7 +98,7 @@ export function calculerMicro(
 
   // ── Exonération zone ───────────────────────────────────────────────────────
   // Note : ZFRR incompatible avec micro — exoneration_zone ne doit être que QPV/ZFU
-  const EXONERATION_SOCIALE_ZONE = input.exoneration_zone ?? 0;
+  const EXONERATION_SOCIALE_ZONE = input.exoneration_sociale_zone ?? 0;
 
   // ── Cotisations nettes ────────────────────────────────────────────────────
   const COTISATIONS_SOCIALES_NETTES = Math.max(
@@ -88,6 +110,11 @@ export function calculerMicro(
   let IR_ATTRIBUABLE_SCENARIO = 0;
   let IMPOT_SCENARIO = 0;
   let BASE_IR_SCENARIO = 0;
+  const RESULTAT_FISCAL_AVANT_EXONERATIONS = Math.max(0, CA_HT_RETENU - ABATTEMENT_FORFAITAIRE);
+  const RESULTAT_FISCAL_APRES_EXONERATIONS = Math.max(
+    0,
+    RESULTAT_FISCAL_AVANT_EXONERATIONS - (input.exoneration_fiscale_zone ?? 0)
+  );
 
   if (input.option_vfl) {
     // Versement Libératoire — impôt calculé directement sur le CA
@@ -95,20 +122,45 @@ export function calculerMicro(
     IMPOT_SCENARIO = CA_HT_RETENU * taux_vfl;
     IR_ATTRIBUABLE_SCENARIO = IMPOT_SCENARIO;
     BASE_IR_SCENARIO = 0; // Hors base IR foyer
+    logger?.trace(7, "Calcul micro — VFL", {
+      scenario_id: input.scenario_id,
+      detail: {
+        option_vfl: input.option_vfl,
+        taux_vfl,
+        montant_vfl: IMPOT_SCENARIO,
+        vfl_inclus_dans_net_avant_ir: true,
+      },
+    });
   } else {
     // IR barème progressif par méthode différentielle
-    BASE_IR_SCENARIO = Math.max(0, CA_HT_RETENU - ABATTEMENT_FORFAITAIRE);
+    BASE_IR_SCENARIO = RESULTAT_FISCAL_APRES_EXONERATIONS;
+    const seuilPuma = params.social.CFG_SEUIL_PUMA as unknown as {
+      seuil_activite_insuffisante?: number;
+      seuil_patrimoine_declencheur?: number;
+    };
+    const revenuActiviteEstime = CA_HT_RETENU - COTISATIONS_SOCIALES_NETTES;
+    const autresRevenusPourIr =
+      input.autres_revenus_foyer !== undefined &&
+      revenuActiviteEstime < (seuilPuma.seuil_activite_insuffisante ?? 0) &&
+      input.autres_revenus_foyer > (seuilPuma.seuil_patrimoine_declencheur ?? 0)
+        ? 0
+        : input.autres_revenus_foyer;
+    if (autresRevenusPourIr === 0 && (input.autres_revenus_foyer ?? 0) > 0) {
+      niveau_fiabilite = "estimation";
+    }
 
-    if (input.autres_revenus_foyer === undefined) {
+    if (autresRevenusPourIr === undefined) {
       niveau_fiabilite = "estimation";
     }
 
     const irResult = f_ir_attribuable_scenario(
       BASE_IR_SCENARIO,
-      input.autres_revenus_foyer,
+      autresRevenusPourIr,
       input.autres_charges_foyer,
       input.nombre_parts_fiscales,
-      params
+      params,
+      logger,
+      input.scenario_id
     );
 
     IR_ATTRIBUABLE_SCENARIO = irResult.ir_attribuable_scenario;
@@ -142,9 +194,9 @@ export function calculerMicro(
       TVA_NETTE_DUE: input.TVA_NETTE_DUE,
       RECETTES_PRO_RETENUES: CA_HT_RETENU,
       ABATTEMENT_FORFAITAIRE,
-      RESULTAT_COMPTABLE: CA_HT_RETENU - ABATTEMENT_FORFAITAIRE,
-      RESULTAT_FISCAL_AVANT_EXONERATIONS: CA_HT_RETENU - ABATTEMENT_FORFAITAIRE,
-      RESULTAT_FISCAL_APRES_EXONERATIONS: CA_HT_RETENU - ABATTEMENT_FORFAITAIRE,
+      RESULTAT_COMPTABLE: RESULTAT_FISCAL_AVANT_EXONERATIONS,
+      RESULTAT_FISCAL_AVANT_EXONERATIONS,
+      RESULTAT_FISCAL_APRES_EXONERATIONS,
       ASSIETTE_SOCIALE_BRUTE,
       ASSIETTE_SOCIALE_APRES_AIDES: ASSIETTE_SOCIALE_BRUTE - REDUCTION_ACRE,
       COTISATIONS_SOCIALES_BRUTES,

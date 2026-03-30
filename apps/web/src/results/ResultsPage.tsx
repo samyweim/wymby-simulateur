@@ -64,6 +64,17 @@ export function ResultsPage({ output, onRestart }: Props) {
           <p className="section-sub">
             Le scénario de référence (le plus courant pour votre profil) comparé au scénario recommandé.
           </p>
+          <div className="results-criteria-legend">
+            <div className="legend-item">
+              <span className="sc-badge sc-badge-reference">Référence</span>
+              <span>Régime le plus courant pour votre profil — point de départ de la comparaison</span>
+            </div>
+            <div className="legend-arrow">→</div>
+            <div className="legend-item">
+              <span className="sc-badge sc-badge-recommande">Recommandé</span>
+              <span>Meilleur compromis : revenu net × robustesse × complexité administrative</span>
+            </div>
+          </div>
           <div className="compare-pair">
             {scReference && (
               <ScenarioCard

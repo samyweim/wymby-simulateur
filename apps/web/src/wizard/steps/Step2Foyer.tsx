@@ -1,4 +1,5 @@
 import type { WizardState } from "../types.js";
+import { shouldShow } from "../visibility.js";
 import "./Step.css";
 
 interface Props {
@@ -105,7 +106,7 @@ export function Step2Foyer({ state, onChange }: Props) {
           </span>
         </div>
 
-        {state.connait_rfr && (
+        {shouldShow("rfr_n2", state) && (
           <div className="field field-indent">
             <label>Revenu fiscal de référence 2024</label>
             <div className="input-suffix-wrap">

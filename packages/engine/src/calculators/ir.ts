@@ -11,6 +11,7 @@
 import type { TrancheIR } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
 import type { ResultatIR } from "@wymby/types";
+import type { EngineLogger } from "../logger.js";
 
 type FP = typeof FiscalParamsType;
 
@@ -76,7 +77,9 @@ export function f_ir_attribuable_scenario(
   autres_revenus_foyer: number | undefined,
   autres_charges_foyer: number | undefined,
   nb_parts: number,
-  params: FP
+  params: FP,
+  logger?: EngineLogger,
+  scenario_id?: string
 ): ResultatIR {
   const base_hors_scenario = Math.max(
     0,
@@ -88,9 +91,24 @@ export function f_ir_attribuable_scenario(
   const ir_foyer_avec = f_bareme_progressif(base_avec_scenario, nb_parts, params);
   const ir_foyer_sans = f_bareme_progressif(base_hors_scenario, nb_parts, params);
   const ir_attribuable = Math.max(0, ir_foyer_avec - ir_foyer_sans);
+  const quotient_familial = nb_parts > 0 ? base_avec_scenario / nb_parts : 0;
+  const tranche_marginale_applicable = _getTrancheMarginaleApplicable(quotient_familial, params);
 
   const mode: ResultatIR["mode"] =
     autres_revenus_foyer === undefined ? "estimation" : "complet";
+
+  logger?.trace(7, "Calcul IR — barème progressif", {
+    scenario_id,
+    detail: {
+      revenu_imposable_foyer: base_avec_scenario,
+      nb_parts,
+      quotient_familial,
+      tranche_marginale_applicable,
+      ir_foyer_total: ir_foyer_avec,
+      ir_foyer_sans_scenario: ir_foyer_sans,
+      ir_differentiel: ir_attribuable,
+    },
+  });
 
   return {
     ir_theorique_foyer: ir_foyer_avec,
@@ -139,23 +157,25 @@ function _appliquerDecote(
   nb_parts: number,
   params: FP
 ): number {
-  const decoteParams = params.fiscal.CFG_DECOTE_IR;
-  const isCouple = nb_parts >= 2;
+  void nb_parts;
+  void params;
+  return impot_brut;
+}
 
-  const forfait = isCouple
-    ? decoteParams.forfait_couple
-    : decoteParams.forfait_celibataire;
+function _getTrancheMarginaleApplicable(baseParPart: number, params: FP): number {
+  const tranches = params.fiscal.CFG_BAREME_IR_TRANCHES;
+  let taux = 0;
 
-  const seuil = isCouple
-    ? decoteParams.seuil_couple
-    : decoteParams.seuil_celibataire;
+  for (const tranche of tranches) {
+    const upper = tranche.a ?? Infinity;
+    if (baseParPart >= tranche.de && baseParPart <= upper) {
+      taux = tranche.taux;
+      break;
+    }
+    if (baseParPart > upper) {
+      taux = tranche.taux;
+    }
+  }
 
-  if (impot_brut > seuil) return impot_brut;
-
-  const decote = Math.max(
-    0,
-    forfait - decoteParams.taux * impot_brut
-  );
-
-  return Math.max(0, impot_brut - decote);
+  return taux;
 }

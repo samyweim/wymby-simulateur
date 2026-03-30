@@ -51,6 +51,8 @@ export function f_cotisations_assimile_salarie(
   for (const ligne of lignes) {
     // Exclure assurance chômage pour le président SASU
     if (ligne.libelle === "Assurance chômage") continue;
+    if (ligne.libelle === "AGS (Garantie des salaires)") continue;
+    if (ligne.libelle === "FNAL (entreprises ≥ 50 salariés)") continue;
 
     let assiette = remuneration_brute;
 
@@ -74,6 +76,13 @@ export function f_cotisations_assimile_salarie(
       detail[`${ligne.libelle}_salarial`] = salarial;
       cotisations_salariales += salarial;
     }
+  }
+
+  if (remuneration_brute > pmss_annuel) {
+    const excedent = remuneration_brute - pmss_annuel;
+    const lissageAnnuelEmployeur =
+      0.0855 + 0.001 + 0.0472 + 0.0129;
+    cotisations_patronales += excedent * lissageAnnuelEmployeur;
   }
 
   const cotisations_totales = cotisations_patronales + cotisations_salariales;

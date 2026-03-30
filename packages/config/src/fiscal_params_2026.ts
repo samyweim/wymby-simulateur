@@ -651,6 +651,18 @@ export const FISCAL_PARAMS_2026 = {
           part_salarie: 0.005,
           assiette: "98,25 % du brut",
         },
+        {
+          libelle: "AGIRC-ARRCO Tranche 1",
+          part_employeur: 0.0472,
+          part_salarie: 0.0315,
+          assiette: "Tranche A (0 – 1 PMSS)",
+        },
+        {
+          libelle: "CEG Tranche 1",
+          part_employeur: 0.0129,
+          part_salarie: 0.0086,
+          assiette: "Tranche A (0 – 1 PMSS)",
+        },
       ] as CotisationLigne[],
       note_president_sasu:
         "Le président de SASU ne cotise pas au chômage. " +
