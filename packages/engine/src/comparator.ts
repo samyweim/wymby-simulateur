@@ -10,51 +10,40 @@ import type {
   EcartVsReference,
   ScenarioId,
   Recommandation,
+  UserInput,
 } from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
 import type { EngineLogger } from "./logger.js";
 
 type FP = typeof FiscalParamsType;
+type ScoreWeights = {
+  w_net: number;
+  w_complexite: number;
+  w_dependance: number;
+  w_robustesse: number;
+};
 
 /**
  * Détermine le scénario de référence selon ALGORITHME.md section 9.1.
  * Priorité : 1) régime déclaré, 2) micro si disponible, 3) premier scénario disponible.
  */
 export function determinerScenarioReference(
-  calculs: DetailCalculScenario[]
+  calculs: DetailCalculScenario[],
+  input?: UserInput
 ): ScenarioId | null {
   if (calculs.length === 0) return null;
 
-  // Préférer un scénario simple, sans booster, représentant le cas "standard".
-  const simple = [...calculs]
-    .filter(
-      (c) =>
-        c.boosters_actifs.length === 0 &&
-        c.option_vfl === "VFL_NON" &&
-        c.option_tva === "TVA_FRANCHISE"
-    )
-    .sort((left, right) => {
-      const scoreDelta =
-        _getScoreComplexiteBase(left.base_id) - _getScoreComplexiteBase(right.base_id);
-      if (scoreDelta !== 0) return scoreDelta;
-      return (right.intermediaires.NET_APRES_IR ?? 0) - (left.intermediaires.NET_APRES_IR ?? 0);
-    })[0];
+  const preferredBaseIds = _getReferenceBasePriority(input);
 
-  if (simple) return simple.scenario_id;
+  for (const baseId of preferredBaseIds) {
+    const candidate = [...calculs]
+      .filter((scenario) => scenario.base_id === baseId)
+      .sort(_compareReferenceCandidates)[0];
 
-  // Fallback historique: un micro généraliste simple quand il existe.
-  const micro = calculs.find(
-    (c) =>
-      (c.base_id === "G_MBIC_SERVICE" ||
-        c.base_id === "G_MBNC" ||
-        c.base_id === "G_MBIC_VENTE") &&
-      c.boosters_actifs.length === 0
-  );
+    if (candidate) return candidate.scenario_id;
+  }
 
-  if (micro) return micro.scenario_id;
-
-  // Fallback : premier scénario disponible
-  return calculs[0]?.scenario_id ?? null;
+  return [...calculs].sort(_compareReferenceCandidates)[0]?.scenario_id ?? null;
 }
 
 /**
@@ -96,7 +85,8 @@ export function calculerEcarts(
  */
 export function calculerScores(
   calcul: DetailCalculScenario,
-  _params: FP
+  params: FP,
+  input?: UserInput
 ): DetailCalculScenario["scores"] {
   const inter = calcul.intermediaires;
   const net = inter.NET_APRES_IR ?? 0;
@@ -118,12 +108,8 @@ export function calculerScores(
 
   const SCORE_ROBUSTESSE = Math.max(0, 1 - TAUX_PRELEVEMENTS_GLOBAL);
 
-  // Score global (pondérations paramétrables — valeurs par défaut documentées)
-  // w_net = 0.5, w_complexite = 0.2, w_dependance = 0.2, w_robustesse = 0.1
-  const w_net = 0.5;
-  const w_complexite = 0.2;
-  const w_dependance = 0.2;
-  const w_robustesse = 0.1;
+  const { w_net, w_complexite, w_dependance, w_robustesse } =
+    _getScoreWeights(params, input);
 
   const net_normalise = Math.min(1, Math.max(0, net / Math.max(1, ca)));
   const complexite_normalise = (score_complexite_base - 1) / 4; // 1–5 → 0–1
@@ -151,6 +137,7 @@ export function calculerScores(
 export function construireComparaison(
   calculs: DetailCalculScenario[],
   scenario_reference_id: ScenarioId,
+  input: UserInput,
   logger: EngineLogger
 ): Comparaison {
   const ecarts = calculerEcarts(calculs, scenario_reference_id);
@@ -188,6 +175,7 @@ export function construireComparaison(
       nb_scenarios: calculs.length,
       optimal_net: classement_net_apres_ir[0],
       optimal_super_net: classement_super_net[0],
+      objectif_tresorerie: input.OBJECTIF_TRESORERIE ?? "par_defaut",
     },
   });
 
@@ -276,6 +264,99 @@ export function determinerRecommandation(
 // Helpers privés
 // ─────────────────────────────────────────────────────────────────────────────
 
+function _compareReferenceCandidates(
+  left: DetailCalculScenario,
+  right: DetailCalculScenario
+): number {
+  const boosterDelta = left.boosters_actifs.length - right.boosters_actifs.length;
+  if (boosterDelta !== 0) return boosterDelta;
+
+  const vflDelta =
+    (left.option_vfl === "VFL_OUI" ? 1 : 0) - (right.option_vfl === "VFL_OUI" ? 1 : 0);
+  if (vflDelta !== 0) return vflDelta;
+
+  const tvaDelta =
+    (left.option_tva === "TVA_COLLECTEE" ? 1 : 0) -
+    (right.option_tva === "TVA_COLLECTEE" ? 1 : 0);
+  if (tvaDelta !== 0) return tvaDelta;
+
+  const complexityDelta =
+    _getScoreComplexiteBase(left.base_id) - _getScoreComplexiteBase(right.base_id);
+  if (complexityDelta !== 0) return complexityDelta;
+
+  return (right.intermediaires.NET_APRES_IR ?? 0) - (left.intermediaires.NET_APRES_IR ?? 0);
+}
+
+function _getReferenceBasePriority(input?: UserInput): string[] {
+  if (!input) {
+    return [
+      "G_EI_REEL_BNC_IR",
+      "G_EI_REEL_BIC_IR",
+      "S_EI_REEL_SECTEUR_1",
+      "A_BNC_REEL",
+      "I_LMNP_REEL",
+    ];
+  }
+
+  if (input.SEGMENT_ACTIVITE === "sante") {
+    if (input.EST_REMPLACANT === true) {
+      return ["S_RSPM", "S_EI_REEL_SECTEUR_1", "S_EI_REEL_SECTEUR_2_NON_OPTAM"];
+    }
+    if (input.SECTEUR_CONVENTIONNEL === "secteur_1") {
+      return ["S_EI_REEL_SECTEUR_1", "S_MICRO_BNC_SECTEUR_1"];
+    }
+    if (input.SECTEUR_CONVENTIONNEL === "secteur_2_optam") {
+      return ["S_EI_REEL_SECTEUR_2_OPTAM", "S_MICRO_BNC_SECTEUR_2"];
+    }
+    if (
+      input.SECTEUR_CONVENTIONNEL === "secteur_2" ||
+      input.SECTEUR_CONVENTIONNEL === "secteur_2_non_optam"
+    ) {
+      return ["S_EI_REEL_SECTEUR_2_NON_OPTAM", "S_MICRO_BNC_SECTEUR_2"];
+    }
+    if (
+      input.SECTEUR_CONVENTIONNEL === "secteur_3" ||
+      input.SECTEUR_CONVENTIONNEL === "hors_convention"
+    ) {
+      return ["S_EI_REEL_SECTEUR_3_HORS_CONVENTION"];
+    }
+    return [
+      "S_EI_REEL_SECTEUR_1",
+      "S_EI_REEL_SECTEUR_2_OPTAM",
+      "S_EI_REEL_SECTEUR_2_NON_OPTAM",
+      "S_MICRO_BNC_SECTEUR_1",
+      "S_MICRO_BNC_SECTEUR_2",
+    ];
+  }
+
+  if (input.SEGMENT_ACTIVITE === "artiste_auteur") {
+    if (input.MODE_DECLARATION_ARTISTE_AUTEUR === "TS") {
+      return ["A_TS_ABATTEMENT_FORFAITAIRE", "A_TS_FRAIS_REELS"];
+    }
+    return ["A_BNC_REEL", "A_BNC_MICRO_TVA_FRANCHISE", "A_BNC_MICRO"];
+  }
+
+  if (input.SEGMENT_ACTIVITE === "immobilier") {
+    if (input.EST_LMP === true) {
+      return ["I_LMP", "I_LMNP_REEL", "I_LMNP_MICRO"];
+    }
+    return ["I_LMNP_REEL", "I_LMNP_MICRO", "I_LMP"];
+  }
+
+  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") {
+    return ["G_EI_REEL_BNC_IR", "G_MBNC", "G_EI_REEL_BNC_IS", "G_EURL_IS", "G_SASU_IS"];
+  }
+
+  return [
+    "G_EI_REEL_BIC_IR",
+    "G_MBIC_SERVICE",
+    "G_MBIC_VENTE",
+    "G_EI_REEL_BIC_IS",
+    "G_EURL_IS",
+    "G_SASU_IS",
+  ];
+}
+
 function _getScoreComplexiteBase(baseId: string): number {
   const complexites: Record<string, number> = {
     G_MBIC_VENTE: 1, G_MBIC_SERVICE: 1, G_MBNC: 1,
@@ -292,6 +373,18 @@ function _getScoreComplexiteBase(baseId: string): number {
     I_LMNP_MICRO: 1, I_LMNP_REEL: 4, I_LMP: 4,
   };
   return complexites[baseId] ?? 3;
+}
+
+function _getScoreWeights(params: FP, input?: UserInput): ScoreWeights {
+  if (input?.OBJECTIF_TRESORERIE === "flux_mensuel") {
+    return params.fiscal.CFG_POIDS_SCORE_GLOBAL.flux_mensuel;
+  }
+
+  if (input?.OBJECTIF_TRESORERIE === "capitalisation") {
+    return params.fiscal.CFG_POIDS_SCORE_GLOBAL.capitalisation;
+  }
+
+  return params.fiscal.CFG_POIDS_SCORE_GLOBAL.par_defaut;
 }
 
 function _buildMotifRecommandation(

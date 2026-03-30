@@ -21,6 +21,16 @@ function isTvaExonereeSante(state: WizardState): boolean {
   return state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
 }
 
+function shouldAskTresorerieObjective(state: WizardState): boolean {
+  const caNum = parseAmount(state.ca_annuel);
+  const isEligibleActivity =
+    caNum > 40_000 &&
+    state.statut_exercice_sante !== "remplacant" &&
+    shouldShow("envisage_associes", state);
+
+  return isEligibleActivity;
+}
+
 export function Step3Aides({ state, onChange }: Props) {
   const caNum = parseAmount(state.ca_annuel);
   const droitsAre = parseAmount(state.droits_are_restants);
@@ -43,6 +53,7 @@ export function Step3Aides({ state, onChange }: Props) {
             };
   const zone = state.code_postal.length === 5 ? resolveZoneFromCodePostal(state.code_postal) : "aucune";
   const arceEstimate = droitsAre * FISCAL_PARAMS_2026.aides.CFG_TAUX_ARCE;
+  const showTresorerieObjective = shouldAskTresorerieObjective(state);
 
   return (
     <div className="step">
@@ -174,6 +185,52 @@ export function Step3Aides({ state, onChange }: Props) {
             </div>
             <span className="hint">
               Permet d'affiner le calcul EURL/SASU (franchise dividendes TNS). Peut etre symbolique : 1 EUR.
+            </span>
+          </div>
+        )}
+
+        {showTresorerieObjective && (
+          <div className="field field-substep">
+            <div className="field-substep-head">
+              <div>
+                <span className="field-substep-kicker">Classement des resultats</span>
+                <label>Quelle est votre priorite financiere ?</label>
+                <p className="field-substep-intro">
+                  Cette preference aide a mieux classer les structures IS si elles
+                  deviennent pertinentes pour votre profil.
+                </p>
+              </div>
+            </div>
+            <div className="toggle-group toggle-group-stack-mobile radio-grid-emphasis">
+              <button
+                type="button"
+                className={`toggle-btn ${
+                  state.objectif_tresorerie === "flux_mensuel" ? "active" : ""
+                }`}
+                onClick={() => onChange({ objectif_tresorerie: "flux_mensuel" })}
+              >
+                Maximiser ce que je touche chaque mois
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${
+                  state.objectif_tresorerie === "capitalisation" ? "active" : ""
+                }`}
+                onClick={() => onChange({ objectif_tresorerie: "capitalisation" })}
+              >
+                Construire une reserve en societe
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${state.objectif_tresorerie === null ? "active" : ""}`}
+                onClick={() => onChange({ objectif_tresorerie: null })}
+              >
+                Pas de preference pour l'instant
+              </button>
+            </div>
+            <span className="hint">
+              Flux mensuel favorise les revenus reguliers. Capitalisation favorise les
+              structures IS avec accumulation puis distribution ponctuelle.
             </span>
           </div>
         )}

@@ -73,6 +73,10 @@
   min-width: 110px;
 }
 
+.col-complexite {
+  min-width: 150px;
+}
+
 .col-why {
   width: 70px;
   text-align: center;
@@ -137,6 +141,38 @@
   cursor: pointer;
 }
 
+.comp-complexity,
+.comp-detail-complexity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+}
+
+.comp-complexity-positive,
+.comp-detail-complexity-positive {
+  background: var(--sage-light);
+  color: var(--sage);
+  border: 1px solid var(--sage-mid);
+}
+
+.comp-complexity-warning,
+.comp-detail-complexity-warning {
+  background: var(--ocre-light);
+  color: var(--ocre);
+  border: 1px solid var(--ocre-mid);
+}
+
+.comp-complexity-danger,
+.comp-detail-complexity-danger {
+  background: var(--terre-light);
+  color: var(--terre);
+  border: 1px solid var(--terre-mid);
+}
+
 .comp-row-detail td {
   background: var(--bg);
   padding: 0;
@@ -179,6 +215,11 @@
   font-size: 0.8125rem;
 }
 
+.comp-detail-complexity {
+  margin: 0;
+  width: fit-content;
+}
+
 .comp-detail-warnings {
   display: flex;
   flex-direction: column;
@@ -214,6 +255,10 @@
   }
 
   .col-ecart {
+    display: none;
+  }
+
+  .col-complexite {
     display: none;
   }
 

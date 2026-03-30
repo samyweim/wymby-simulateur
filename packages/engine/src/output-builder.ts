@@ -41,6 +41,10 @@ export function construireEngineOutput(
       segment: qual.segment as SegmentActivite,
       forme_juridique: input.FORME_JURIDIQUE_ENVISAGEE,
       regime_envisage: input.REGIME_FISCAL_ENVISAGE,
+      interet_societe: input.INTERET_SOCIETE_EXPLICITE,
+      question_societe_renseignee: input.QUESTION_SOCIETE_RENSEIGNEE,
+      objectif_tresorerie: input.OBJECTIF_TRESORERIE,
+      est_nouvelle_activite: input.EST_CREATEUR_REPRENEUR === true,
     },
     activite: {
       CA_HT_RETENU: norm.CA_HT_RETENU,

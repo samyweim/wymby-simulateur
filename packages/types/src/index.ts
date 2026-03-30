@@ -91,6 +91,8 @@ export type OptionExonerationZone =
   | "ZFU_stock"
   | "aucune";
 
+export type ObjectifTresorerie = "flux_mensuel" | "capitalisation";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // IDENTIFIANTS DE SCÉNARIOS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -250,6 +252,9 @@ export interface UserInputAides {
   TOTAL_BILAN?: number;
   PART_CA_REALISEE_EN_ZONE?: number;
   OPTION_EXONERATION_ZONE_CHOISIE?: OptionExonerationZone;
+  INTERET_SOCIETE_EXPLICITE?: boolean;
+  QUESTION_SOCIETE_RENSEIGNEE?: boolean;
+  OBJECTIF_TRESORERIE?: ObjectifTresorerie;
 }
 
 export interface UserInputQualite {
@@ -456,6 +461,10 @@ export interface InputsNormalises {
     segment: SegmentActivite;
     forme_juridique?: FormeJuridique;
     regime_envisage?: RegimeFiscalEnvisage;
+    interet_societe?: boolean;
+    question_societe_renseignee?: boolean;
+    objectif_tresorerie?: ObjectifTresorerie;
+    est_nouvelle_activite?: boolean;
   };
   activite: {
     CA_HT_RETENU: number;

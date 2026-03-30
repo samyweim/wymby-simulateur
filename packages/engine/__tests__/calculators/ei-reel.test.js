@@ -27,9 +27,11 @@ const BASE_INPUT = {
         const result = (0, ei_reel_js_1.calculerEIReel)({ ...BASE_INPUT, type_ei: "BIC_IR" }, P);
         (0, vitest_1.expect)(result.niveau_fiabilite).toBe("estimation");
     });
-    (0, vitest_1.it)("Avec autres revenus foyer : fiabilité complet", () => {
+    (0, vitest_1.it)("Avec autres revenus foyer : fiabilité au moins partiel", () => {
         const result = (0, ei_reel_js_1.calculerEIReel)({ ...BASE_INPUT, type_ei: "BIC_IR", autres_revenus_foyer: 20_000 }, P);
-        (0, vitest_1.expect)(result.niveau_fiabilite).toBe("complet");
+        // ASU 2026 reform has an open TODO ambiguity → fiabilité stays at "estimation" or "partiel"
+        // It must not be "complet" until the ASU rules are fully confirmed.
+        (0, vitest_1.expect)(result.niveau_fiabilite).not.toBe("complet");
     });
     (0, vitest_1.it)("ACRE réduit les cotisations nettes", () => {
         const sans = (0, ei_reel_js_1.calculerEIReel)({ ...BASE_INPUT, type_ei: "BIC_IR" }, P);

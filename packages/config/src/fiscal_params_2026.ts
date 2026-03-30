@@ -2021,6 +2021,32 @@ export const FISCAL_PARAMS_2026 = {
         "Le Groupe I (garanties de base contrat responsable) est intégralement déductible. " +
         "Les garanties surcomplémentaires facultatives (Groupe II) ne le sont généralement pas.",
     },
+
+    /**
+     * Pondérations du score global de comparaison.
+     * Paramétrage non réglementaire mais centralisé ici pour éviter tout coefficient
+     * métier dispersé dans le code moteur.
+     */
+    CFG_POIDS_SCORE_GLOBAL: {
+      par_defaut: {
+        w_net: 0.5,
+        w_complexite: 0.2,
+        w_dependance: 0.2,
+        w_robustesse: 0.1,
+      },
+      flux_mensuel: {
+        w_net: 0.3,
+        w_complexite: 0.3,
+        w_dependance: 0.3,
+        w_robustesse: 0.1,
+      },
+      capitalisation: {
+        w_net: 0.6,
+        w_complexite: 0.1,
+        w_dependance: 0.2,
+        w_robustesse: 0.1,
+      },
+    },
   },
 
 

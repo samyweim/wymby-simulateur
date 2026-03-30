@@ -217,6 +217,207 @@
   text-align: left;
 }
 
+.sc-complexity {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sc-complexity-positive {
+  background: var(--sage-light);
+  border-color: var(--sage-mid);
+}
+
+.sc-complexity-warning {
+  background: var(--ocre-light);
+  border-color: var(--ocre-mid);
+}
+
+.sc-complexity-danger {
+  background: var(--terre-light);
+  border-color: var(--terre-mid);
+}
+
+.sc-complexity-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.sc-complexity-kicker {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.sc-complexity-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.sc-complexity-line strong {
+  color: var(--text-primary);
+}
+
+.sc-complexity-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.sc-complexity-score {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sc-complexity-cost {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.sc-complexity-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sc-complexity-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.sc-access {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: linear-gradient(180deg, rgba(201, 181, 150, 0.08), rgba(255, 255, 255, 0));
+}
+
+.sc-access-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.sc-access-kicker {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.sc-access-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.sc-access-line strong {
+  color: var(--text-primary);
+}
+
+.sc-access-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sc-access-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.sc-access-meta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.sc-access-badge {
+  align-self: flex-start;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--terre);
+  border: 1px solid var(--terre-mid);
+}
+
+.sc-access-warning {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  background: var(--ocre-light);
+  border: 1px solid var(--ocre-mid);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.625rem;
+}
+
+.sc-access-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+.sc-access-link {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 0.12rem;
+}
+
+.sc-grouped-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.625rem;
+}
+
 .sc-detail-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -301,6 +502,18 @@
 
   .sc-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .sc-complexity-summary {
+    flex-direction: column;
+  }
+
+  .sc-complexity-side {
+    align-items: flex-start;
+  }
+
+  .sc-access-summary {
+    flex-direction: column;
   }
 }
 

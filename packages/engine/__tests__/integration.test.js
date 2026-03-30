@@ -75,6 +75,47 @@ function baseInput(overrides) {
         (0, vitest_1.expect)(Array.isArray(output.qualite_resultat.hypotheses_retenues)).toBe(true);
     });
 });
+(0, vitest_1.describe)("Qualification metier BIC vs BNC", () => {
+    (0, vitest_1.it)("Une prestation BIC n'ouvre pas de scenarios BNC generalistes", () => {
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            CA_ENCAISSE_UTILISATEUR: 40_000,
+            SOUS_SEGMENT_ACTIVITE: "prestation",
+            AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+        }));
+        const baseIds = output.scenarios_possibles.map((scenario) => scenario.base_id);
+        (0, vitest_1.expect)(baseIds).toContain("G_MBIC_SERVICE");
+        (0, vitest_1.expect)(baseIds).not.toContain("G_MBNC");
+        (0, vitest_1.expect)(baseIds).not.toContain("G_EI_REEL_BNC_IR");
+        (0, vitest_1.expect)(baseIds).not.toContain("G_EI_REEL_BNC_IS");
+    });
+});
+(0, vitest_1.describe)("TVA BNC sante avec ADELI", () => {
+    (0, vitest_1.it)("Une profession liberale de sante avec numero ADELI reste exoneree de TVA", () => {
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            SOUS_SEGMENT_ACTIVITE: "liberal",
+            CA_ENCAISSE_UTILISATEUR: 60_000,
+            EST_PROFESSION_SANTE: true,
+            A_NUMERO_ADELI: true,
+            TVA_DEJA_APPLICABLE: false,
+        }));
+        (0, vitest_1.expect)(output.inputs_normalises.tva.regime_applicable).toBe("TVA_FRANCHISE");
+        (0, vitest_1.expect)(output.qualification.flags.FLAG_TVA_APPLICABLE).toBe(false);
+        (0, vitest_1.expect)(output.qualification.flags.FLAG_DEPASSEMENT_SEUIL_TVA).toBe(false);
+    });
+    (0, vitest_1.it)("Sans ADELI, le seuil TVA BNC continue de s'appliquer", () => {
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            SOUS_SEGMENT_ACTIVITE: "liberal",
+            CA_ENCAISSE_UTILISATEUR: 60_000,
+            EST_PROFESSION_SANTE: true,
+            A_NUMERO_ADELI: false,
+            TVA_DEJA_APPLICABLE: false,
+        }));
+        (0, vitest_1.expect)(output.inputs_normalises.tva.regime_applicable).toBe("TVA_FRANCHISE");
+        (0, vitest_1.expect)(output.qualification.flags.FLAG_TVA_APPLICABLE).toBe(false);
+        (0, vitest_1.expect)(output.qualification.flags.FLAG_DEPASSEMENT_SEUIL_TVA).toBe(true);
+        (0, vitest_1.expect)(output.qualite_resultat.avertissements.some((a) => a.includes("seuil de franchise TVA"))).toBe(true);
+    });
+});
 // ─── Profil 2 : EI réel BIC avec ACRE ────────────────────────────────────────
 (0, vitest_1.describe)("Intégration — Profil EI réel BIC IR avec ACRE (C13)", () => {
     const input = baseInput({
@@ -223,6 +264,43 @@ function baseInput(overrides) {
             // Le COUT_TOTAL ne peut pas être négatif
             (0, vitest_1.expect)(sc.intermediaires.COUT_TOTAL_SOCIAL_FISCAL).toBeGreaterThanOrEqual(0);
         }
+    });
+});
+// ─── Bug B1 — CA massif sans CA_N1 : aucun scénario micro ──────────────────
+(0, vitest_1.describe)("Filtre X01 — CA très élevé sans CA N-1 → basculement réel obligatoire", () => {
+    // CA = 500 000 € > 2× seuil micro BIC service (83 600 × 2 = 167 200)
+    // Sans CA_N1, la règle "depassement_massif" force basculement_reel_oblige
+    (0, vitest_1.it)("CA = 500 000 € → aucun scénario micro dans calculs_par_scenario", () => {
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            CA_ENCAISSE_UTILISATEUR: 500_000,
+            SOUS_SEGMENT_ACTIVITE: "prestation",
+            AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+        }));
+        const MICRO_BASE_IDS = new Set(["G_MBIC_VENTE", "G_MBIC_SERVICE", "G_MBNC"]);
+        const microCalculs = output.calculs_par_scenario.filter((c) => MICRO_BASE_IDS.has(c.base_id));
+        (0, vitest_1.expect)(microCalculs.length).toBe(0);
+    });
+    (0, vitest_1.it)("CA = 500 000 € → micro scenarios dans scenarios_exclus avec motif X01", () => {
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            CA_ENCAISSE_UTILISATEUR: 500_000,
+            SOUS_SEGMENT_ACTIVITE: "prestation",
+            AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+        }));
+        const MICRO_BASE_IDS = new Set(["G_MBIC_VENTE", "G_MBIC_SERVICE", "G_MBNC"]);
+        const microExclus = output.scenarios_exclus.filter((e) => MICRO_BASE_IDS.has(e.base_id));
+        (0, vitest_1.expect)(microExclus.length).toBeGreaterThan(0);
+        const motif = microExclus[0].motifs_exclusion[0] ?? "";
+        (0, vitest_1.expect)(motif.toLowerCase()).toMatch(/x01|seuil micro|r.el obligatoire/i);
+    });
+    (0, vitest_1.it)("CA = 90 000 € (< 2× seuil) sans CA_N1 → premiere_annee_depassement : micro encore calculé", () => {
+        const SEUIL = P.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
+        const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({
+            CA_ENCAISSE_UTILISATEUR: Math.round(SEUIL * 1.05),
+            SOUS_SEGMENT_ACTIVITE: "prestation",
+        }));
+        const microService = output.calculs_par_scenario.find((c) => c.base_id === "G_MBIC_SERVICE");
+        (0, vitest_1.expect)(microService).toBeDefined();
+        (0, vitest_1.expect)(output.qualification.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).toBe(true);
     });
 });
 //# sourceMappingURL=integration.test.js.map

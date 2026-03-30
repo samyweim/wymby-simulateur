@@ -79,6 +79,7 @@ export interface WizardState {
   tva_deja_applicable: boolean | null;
   envisage_associes: boolean | null;
   capital_social: string;
+  objectif_tresorerie: "flux_mensuel" | "capitalisation" | null;
 }
 
 export const WIZARD_INITIAL_STATE: WizardState = {
@@ -126,4 +127,5 @@ export const WIZARD_INITIAL_STATE: WizardState = {
   tva_deja_applicable: null,
   envisage_associes: null,
   capital_social: "",
+  objectif_tresorerie: null,
 };

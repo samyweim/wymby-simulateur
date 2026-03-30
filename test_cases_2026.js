@@ -1544,3 +1544,4 @@ exports.SUMMARY = {
         "Le moteur doit les recalculer via f_cotisations_tns et CFG_TAUX_SOCIAL_TNS_BIC. " +
         "Les valeurs expected sont des points de référence à ±50 € près pour ces cas.",
 };
+//# sourceMappingURL=test_cases_2026.js.map

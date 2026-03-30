@@ -180,7 +180,7 @@ function _runEngineInternal(
   }
 
   const comparaison = scenario_reference_id
-    ? construireComparaison(calculs, scenario_reference_id, logger)
+    ? construireComparaison(calculs, scenario_reference_id, input, logger)
     : {
         scenario_reference_id: "",
         classement_net_apres_ir: [],
@@ -404,7 +404,7 @@ function _calculerScenario(
   };
 
   // Calculer les scores
-  calcul.scores = calculerScores(calcul, params);
+  calcul.scores = calculerScores(calcul, params, input);
 
   logger.calc(7, "Scénario calculé", "NET_APRES_IR", calcul.intermediaires.NET_APRES_IR ?? 0, {
     CA: norm.CA_HT_RETENU,
@@ -477,6 +477,7 @@ function _getAnneeDispositif(input: UserInput): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export { FISCAL_PARAMS_2026 };
+export { SCENARIO_REGISTRY } from "./scenarios/registry.js";
 export { formatEngineLogs, filterLogs, filterLogsByScenario, summarizeLogs };
 export type { EngineOutput, UserInput, EngineLog };
 export type { LogLevel } from "./logger.js";
