@@ -7,7 +7,6 @@ export type TypeActivite =
   | "prestation"
   | "commerce"
   | "liberal_reglemente"
-  | "liberal_non_reglemente"
   | "sante_medecin"
   | "sante_paramedicale"
   | "artiste"
@@ -47,6 +46,7 @@ export interface WizardState {
   ca_annuel: string;
   mode_ca: "HT" | "TTC";
   a_des_charges: boolean | null;
+  mode_saisie_charges: "global" | "detail" | "";
   charges_annuelles: string;
   charges_locaux: string;
   charges_materiel: string;
@@ -63,7 +63,7 @@ export interface WizardState {
   amort_vehicule: string;
   amort_mobilier: string;
   amort_logiciels: string;
-  certitude_ca: "certain" | "estimé" | "estimÃ©" | "estimÃƒÂ©" | "faible";
+  certitude_ca: "certain" | "estimé" | "faible";
 
   situation_familiale: SituationFamilialeWizard;
   nb_enfants: number;
@@ -95,6 +95,7 @@ export const WIZARD_INITIAL_STATE: WizardState = {
   ca_annuel: "",
   mode_ca: "HT",
   a_des_charges: null,
+  mode_saisie_charges: "",
   charges_annuelles: "",
   charges_locaux: "",
   charges_materiel: "",

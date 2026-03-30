@@ -133,7 +133,7 @@ function _runEngineInternal(
 
   // ── Étape 7 : Application des filtres d'exclusion ─────────────────────────
   const { possibles: apres_filtres_excl, exclus: exclus_filtres } =
-    filtrerScenariosParExclusion(scenarios_bruts, filtres, input, logger);
+    filtrerScenariosParExclusion(scenarios_bruts, filtres, input, params, logger);
 
   // ── Étape 8 : Vérification matrice d'incompatibilités ─────────────────────
   const { possibles: scenarios_finaux, exclus: exclus_compat } =
@@ -331,12 +331,21 @@ function _calculerScenario(
           input.CHARGES_DECAISSEES !== undefined
             ? input.CHARGES_DECAISSEES
             : norm.CHARGES_DEDUCTIBLES_RETENUES,
+        tva_nette_due: norm.TVA_NETTE_DUE,
         amortissements: input.DOTATIONS_AMORTISSEMENTS,
         autres_revenus_foyer: input.AUTRES_REVENUS_FOYER_IMPOSABLES,
         autres_charges_foyer: input.AUTRES_CHARGES_DEDUCTIBLES_FOYER,
         nombre_parts_fiscales: norm.NOMBRE_PARTS_FISCALES,
         secteur_conventionnel: input.SECTEUR_CONVENTIONNEL,
         sous_segment_activite: input.SOUS_SEGMENT_ACTIVITE,
+        acre_active: sc.boosters_actifs.includes("BOOST_ACRE"),
+        date_creation: input.DATE_CREATION_ACTIVITE
+          ? new Date(input.DATE_CREATION_ACTIVITE)
+          : undefined,
+        droits_are_restants: input.DROITS_ARE_RESTANTS,
+        remuneration_dirigeant: input.REMUNERATION_DIRIGEANT_ENVISAGEE,
+        dividendes_envisages: input.DIVIDENDES_ENVISAGES,
+        capital_social: input.CAPITAL_SOCIAL,
         option_raap_taux_reduit: input.OPTION_RAAP_TAUX_REDUIT,
         est_redevable_raap: input.EST_REDEVABLE_RAAP,
         autres_revenus_activite_foyer: input.AUTRES_REVENUS_ACTIVITE_FOYER,

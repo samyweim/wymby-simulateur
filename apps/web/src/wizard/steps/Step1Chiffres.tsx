@@ -146,7 +146,7 @@ function formatCurrency(value: number): string {
 }
 
 export function Step1Chiffres({ state, onChange }: Props) {
-  const isSante = ["sante_medecin", "sante_paramedicale", "liberal_non_reglemente"].includes(
+  const isSante = ["sante_medecin", "sante_paramedicale"].includes(
     state.type_activite
   );
   const shouldShowRetrocession = shouldShow("charges_retrocession", state);
@@ -313,12 +313,8 @@ export function Step1Chiffres({ state, onChange }: Props) {
             </div>
           </div>
           <p className="field-hint">{caHint}</p>
-          <span className="hint">
-            Si vous n'etes pas encore assujetti a la TVA, saisissez le montant encaisse.
-          </span>
-
           {caNum > 0 && (
-            <>
+            <div className="ca-badges">
               <div
                 className={`field-validation ${
                   caNum <= microThreshold
@@ -328,21 +324,20 @@ export function Step1Chiffres({ state, onChange }: Props) {
               >
                 {caNum <= microThreshold ? (
                   <>
-                    CA compatible avec le regime micro a ce stade. Seuil 2026 retenu :{" "}
+                    CA compatible avec le regime micro. Seuil 2026 :{" "}
                     <strong>{formatCurrency(microThreshold)} EUR</strong>.
                   </>
                 ) : (
                   <>
-                    CA au-dessus du seuil micro 2026 de{" "}
-                    <strong>{formatCurrency(microThreshold)} EUR</strong> : le regime micro n'est
-                    en principe plus envisageable.
+                    Au-dessus du seuil micro de{" "}
+                    <strong>{formatCurrency(microThreshold)} EUR</strong>.
                   </>
                 )}
               </div>
 
               {tvaThresholds === null ? (
                 <div className="field-validation field-validation-positive">
-                  Cette activite est traitee comme <strong>exoneree de TVA</strong>.
+                  Activite traitee comme <strong>exoneree de TVA</strong>.
                 </div>
               ) : (
                 <div
@@ -356,21 +351,16 @@ export function Step1Chiffres({ state, onChange }: Props) {
                 >
                   {caNum < tvaThresholds.franchise ? (
                     <>
-                      Sous le seuil de franchise TVA de{" "}
-                      <strong>{formatCurrency(tvaThresholds.franchise)} EUR</strong> : la franchise
-                      reste en principe envisageable.
+                      Sous la franchise TVA de{" "}
+                      <strong>{formatCurrency(tvaThresholds.franchise)} EUR</strong>.
                     </>
                   ) : caNum <= tvaThresholds.tolerance ? (
                     <>
-                      CA au-dessus du seuil de franchise TVA de{" "}
-                      <strong>{formatCurrency(tvaThresholds.franchise)} EUR</strong>. Une sortie de
-                      franchise est a anticiper si ce niveau se confirme.
+                      Au-dessus de la franchise TVA, sortie a anticiper.
                     </>
                   ) : (
                     <>
-                      CA au-dessus du seuil majore TVA de{" "}
-                      <strong>{formatCurrency(tvaThresholds.tolerance)} EUR</strong> : une sortie
-                      immediate de la franchise peut s'appliquer.
+                      Au-dessus du seuil majore TVA : sortie immediate possible.
                     </>
                   )}
                 </div>
@@ -381,7 +371,7 @@ export function Step1Chiffres({ state, onChange }: Props) {
                   {rspmStatus.message}
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -392,8 +382,22 @@ export function Step1Chiffres({ state, onChange }: Props) {
               <button
                 key={certainty.value}
                 type="button"
-                className={`toggle-btn ${state.certitude_ca === certainty.value ? "active" : ""}`}
-                onClick={() => onChange({ certitude_ca: certainty.value })}
+                    className={`toggle-btn ${
+                      state.certitude_ca ===
+                      (certainty.value === "certain" || certainty.value === "faible"
+                        ? certainty.value
+                        : "estimé")
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      onChange({
+                        certitude_ca:
+                          certainty.value === "certain" || certainty.value === "faible"
+                            ? certainty.value
+                            : "estimé",
+                      })
+                    }
               >
                 {certainty.label}
               </button>
@@ -403,47 +407,47 @@ export function Step1Chiffres({ state, onChange }: Props) {
 
         {shouldShowRetrocession && (
           <div className="field">
-            <label>Retrocession annuelle</label>
-            <div className="ca-row">
-              <div className="input-suffix-wrap" style={{ flex: 1 }}>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder={state.mode_retrocession === "percent" ? "ex. 25" : "ex. 30 000"}
-                  value={state.charges_retrocession}
-                  onChange={(event) => onChange({ charges_retrocession: event.target.value })}
-                />
-                <span className="input-suffix">
-                  {state.mode_retrocession === "percent" ? "%" : "EUR / an"}
-                </span>
+              <label>Retrocession annuelle</label>
+              <div className="ca-row">
+                <div className="input-suffix-wrap" style={{ flex: 1 }}>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder={state.mode_retrocession === "percent" ? "ex. 25" : "ex. 30 000"}
+                    value={state.charges_retrocession}
+                    onChange={(event) => onChange({ charges_retrocession: event.target.value })}
+                  />
+                  <span className="input-suffix">
+                    {state.mode_retrocession === "percent" ? "%" : "EUR / an"}
+                  </span>
+                </div>
+                <div className="toggle-group" style={{ flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${state.mode_retrocession === "euros" ? "active" : ""}`}
+                    onClick={() => onChange({ mode_retrocession: "euros" })}
+                  >
+                    EUR
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${state.mode_retrocession === "percent" ? "active" : ""}`}
+                    onClick={() => onChange({ mode_retrocession: "percent" })}
+                  >
+                    %
+                  </button>
+                </div>
               </div>
-              <div className="toggle-group" style={{ flexShrink: 0 }}>
-                <button
-                  type="button"
-                  className={`toggle-btn ${state.mode_retrocession === "euros" ? "active" : ""}`}
-                  onClick={() => onChange({ mode_retrocession: "euros" })}
-                >
-                  EUR
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn ${state.mode_retrocession === "percent" ? "active" : ""}`}
-                  onClick={() => onChange({ mode_retrocession: "percent" })}
-                >
-                  %
-                </button>
-              </div>
-            </div>
-            <span className="hint">
-              {state.mode_retrocession === "percent"
-                ? "Part du chiffre d'affaires reversee en retrocession."
-                : "Montant annuel verse en retrocession."}
-            </span>
-            {retrocessionValidation && (
-              <div className={`field-validation field-validation-${retrocessionValidation.tone}`}>
-                {retrocessionValidation.message}
-              </div>
-            )}
+              <span className="hint">
+                {state.mode_retrocession === "percent"
+                  ? "Part du chiffre d'affaires reversee en retrocession — traitee comme une charge pro deductible."
+                  : "Montant annuel verse en retrocession — traite comme une charge pro deductible."}
+              </span>
+              {retrocessionValidation && (
+                <div className={`field-validation field-validation-${retrocessionValidation.tone}`} style={{ marginTop: "0.5rem" }}>
+                  {retrocessionValidation.message}
+                </div>
+              )}
           </div>
         )}
 
@@ -463,6 +467,7 @@ export function Step1Chiffres({ state, onChange }: Props) {
               onClick={() =>
                 onChange({
                   a_des_charges: false,
+                  mode_saisie_charges: "",
                   charges_annuelles: "",
                   charges_locaux: "",
                   charges_materiel: "",
@@ -480,6 +485,67 @@ export function Step1Chiffres({ state, onChange }: Props) {
             </button>
           </div>
         </div>
+
+        {state.a_des_charges === true && (
+          <div className="field field-indent">
+            <label>Comment souhaitez-vous les saisir ?</label>
+            <div className="toggle-group">
+              <button
+                type="button"
+                className={`toggle-btn ${state.mode_saisie_charges === "global" ? "active" : ""}`}
+                onClick={() =>
+                  onChange({
+                    mode_saisie_charges: "global",
+                    charges_locaux: "",
+                    charges_materiel: "",
+                    charges_personnel: "",
+                    charges_autres: "",
+                    charges_repas: "",
+                    charges_deplacement_transport: "",
+                    charges_telecom: "",
+                    charges_rc_pro: "",
+                    charges_cotisations_pro: "",
+                  })
+                }
+              >
+                Montant global
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${state.mode_saisie_charges === "detail" ? "active" : ""}`}
+                onClick={() =>
+                  onChange({
+                    mode_saisie_charges: "detail",
+                    charges_annuelles: "",
+                  })
+                }
+              >
+                Par categorie
+              </button>
+            </div>
+          </div>
+        )}
+
+        {state.a_des_charges === true && state.mode_saisie_charges === "global" && (
+          <div className="field field-indent">
+            <label>Total des depenses professionnelles</label>
+            <div className="input-suffix-wrap">
+              <input
+                type="number"
+                min="0"
+                placeholder="ex. 8 000"
+                value={state.charges_annuelles}
+                onChange={(event) => onChange({ charges_annuelles: event.target.value })}
+              />
+              <span className="input-suffix">EUR / an</span>
+            </div>
+            {chargesValidation && (
+              <div className={`field-validation field-validation-${chargesValidation.tone}`}>
+                {chargesValidation.message}
+              </div>
+            )}
+          </div>
+        )}
 
         {shouldShow("charges_detail", state) && (
           <div className="charges-detail">
@@ -505,27 +571,6 @@ export function Step1Chiffres({ state, onChange }: Props) {
 
             <div className="charges-total">
               Total annuel estime : <strong>{formatCurrency(totalCharges)} EUR</strong>
-            </div>
-            {chargesValidation && (
-              <div className={`field-validation field-validation-${chargesValidation.tone}`}>
-                {chargesValidation.message}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!shouldShow("charges_detail", state) && state.a_des_charges && (
-          <div className="field field-indent">
-            <label>Total des depenses professionnelles</label>
-            <div className="input-suffix-wrap">
-              <input
-                type="number"
-                min="0"
-                placeholder="ex. 8 000"
-                value={state.charges_annuelles}
-                onChange={(event) => onChange({ charges_annuelles: event.target.value })}
-              />
-              <span className="input-suffix">EUR / an</span>
             </div>
             {chargesValidation && (
               <div className={`field-validation field-validation-${chargesValidation.tone}`}>

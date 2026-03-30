@@ -19,6 +19,19 @@ function fmt(n: number | undefined): string {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n));
 }
 
+function fmtIr(
+  n: number | undefined,
+  niveauFiabilite: DetailCalculScenario["niveau_fiabilite"],
+  optionVfl: DetailCalculScenario["option_vfl"]
+): string {
+  if (n === undefined || n === null) return "—";
+  const formatted = `${fmt(n)} €`;
+  if (niveauFiabilite === "estimation" && optionVfl !== "VFL_OUI") {
+    return `~${formatted} (estimation)`;
+  }
+  return formatted;
+}
+
 function getFiabiliteLabel(niveau: DetailCalculScenario["niveau_fiabilite"]) {
   if (niveau === "complet") return "✓ Complet";
   if (niveau === "partiel") return "~ Partiel";
@@ -121,7 +134,13 @@ export function ComparaisonTable({ calculs, comparaison, recommandeId, optimalId
                             </div>
                             <div className="comp-detail-number">
                               <span className="comp-detail-label">IR attribuable</span>
-                              <strong>{fmt(inter.IR_ATTRIBUABLE_SCENARIO)} €</strong>
+                              <strong>
+                                {fmtIr(
+                                  inter.IR_ATTRIBUABLE_SCENARIO,
+                                  scenario.niveau_fiabilite,
+                                  scenario.option_vfl
+                                )}
+                              </strong>
                             </div>
                             <div className="comp-detail-number">
                               <span className="comp-detail-label">Coût total</span>

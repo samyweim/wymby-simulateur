@@ -18,7 +18,7 @@ export function shouldShow(field: VisibleField, state: WizardState): boolean {
 
   switch (field) {
     case "charges_detail":
-      return state.a_des_charges === true;
+      return state.a_des_charges === true && state.mode_saisie_charges === "detail";
 
     case "amortissements":
       return (
@@ -36,16 +36,16 @@ export function shouldShow(field: VisibleField, state: WizardState): boolean {
       return state.percoit_chomage === true;
 
     case "activite_sante":
-      return state.type_activite === "liberal_non_reglemente";
+      return false;
 
     case "numero_adeli":
-      return (
-        state.type_activite === "liberal_non_reglemente" &&
-        state.est_profession_sante === true
-      );
+      return false;
 
     case "secteur_sante":
-      return state.type_activite === "sante_medecin";
+      return (
+        state.type_activite === "sante_medecin" ||
+        state.type_activite === "sante_paramedicale"
+      );
 
     case "statut_exercice_sante":
       return (
@@ -56,8 +56,7 @@ export function shouldShow(field: VisibleField, state: WizardState): boolean {
     case "charges_retrocession":
       return (
         state.type_activite === "sante_medecin" ||
-        state.type_activite === "sante_paramedicale" ||
-        state.type_activite === "liberal_non_reglemente"
+        state.type_activite === "sante_paramedicale"
       );
 
     case "envisage_associes":

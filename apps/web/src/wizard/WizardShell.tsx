@@ -21,10 +21,11 @@ const STORAGE_KEY = "wymby_wizard_state";
 
 function canAdvance(step: number, state: WizardState): boolean {
   if (step === 0) {
-    const isMedecin = state.type_activite === "sante_medecin";
+    const needsSecteurConventionnel =
+      state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
     const isSanteReglementee =
       state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
-    const santeOk = !isMedecin || state.secteur_conventionnel !== "";
+    const santeOk = !needsSecteurConventionnel || state.secteur_conventionnel !== "";
     const statutOk = !isSanteReglementee || state.statut_exercice_sante !== "";
     const activiteOk =
       state.est_deja_en_activite !== true ||
@@ -151,6 +152,14 @@ export function WizardShell({ onComplete }: Props) {
             <span className="brand-name">WYMBY</span>
             <span className="brand-tagline">Simulateur fiscal indépendants 2026</span>
           </div>
+          {import.meta.env.DEV && (
+            <a
+              href="/debug"
+              style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}
+            >
+              debug
+            </a>
+          )}
           <ProgressBar step={step} total={4} labels={STEP_LABELS} />
         </div>
       </header>

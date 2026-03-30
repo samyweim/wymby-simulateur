@@ -11,7 +11,7 @@ const ACTIVITES = [
   {
     value: "prestation" as const,
     title: "BNC - conseil et prestations intellectuelles",
-    desc: "Consultant en gestion, formateur, developpeur, data scientist, coach, marketing...",
+    desc: "Consultant en gestion, formateur, developpeur, data scientist, coach, marketing, psychologie, bien-etre non reglemente...",
   },
   {
     value: "liberal_reglemente" as const,
@@ -34,11 +34,6 @@ const ACTIVITES = [
     desc: "Infirmier liberal, kine, psychologue, orthophoniste, osteopathe...",
   },
   {
-    value: "liberal_non_reglemente" as const,
-    title: "Sante / bien-etre non reglemente",
-    desc: "Sophrologue, naturopathe, hypnotherapeute, psychopraticien, yoga, pilates...",
-  },
-  {
     value: "artiste" as const,
     title: "Artiste-auteur",
     desc: "Auteur, musicien, plasticien, photographe, illustrateur...",
@@ -57,7 +52,7 @@ const ACTIVITE_GROUPS = [
   },
   {
     label: "Sante",
-    values: ["sante_medecin", "sante_paramedicale", "liberal_non_reglemente"],
+    values: ["sante_medecin", "sante_paramedicale"],
   },
   {
     label: "Immobilier",
@@ -88,6 +83,7 @@ const YEARS = Array.from({ length: 12 }, (_, index) => String(2026 - index));
 
 export function Step0Profil({ state, onChange }: Props) {
   const needsHealthSector = shouldShow("secteur_sante", state);
+  const isParamedical = state.type_activite === "sante_paramedicale";
   const healthSectorCompleted = state.secteur_conventionnel !== "";
 
   return (
@@ -175,28 +171,42 @@ export function Step0Profil({ state, onChange }: Props) {
             </p>
 
             <div className="radio-grid radio-grid-emphasis">
-              {[
-                {
-                  value: "1",
-                  title: "Secteur 1",
-                  desc: "Honoraires opposables, aide CPAM maximale",
-                },
-                {
-                  value: "2_optam",
-                  title: "Secteur 2 OPTAM",
-                  desc: "Depassements moderes, aide CPAM partielle",
-                },
-                {
-                  value: "2_non_optam",
-                  title: "Secteur 2 (sans OPTAM)",
-                  desc: "Depassements libres, cotisations au taux plein",
-                },
-                {
-                  value: "3",
-                  title: "Secteur 3 / Non conventionne",
-                  desc: "Hors convention Assurance Maladie, tarifs entierement libres",
-                },
-              ].map((sector) => (
+              {(isParamedical
+                ? [
+                    {
+                      value: "1",
+                      title: "Conventionne secteur 1",
+                      desc: "Convention PAMC avec aide CPAM possible",
+                    },
+                    {
+                      value: "3",
+                      title: "Non conventionne",
+                      desc: "Hors convention Assurance Maladie",
+                    },
+                  ]
+                : [
+                    {
+                      value: "1",
+                      title: "Secteur 1",
+                      desc: "Honoraires opposables, aide CPAM maximale",
+                    },
+                    {
+                      value: "2_optam",
+                      title: "Secteur 2 OPTAM",
+                      desc: "Depassements moderes, aide CPAM partielle",
+                    },
+                    {
+                      value: "2_non_optam",
+                      title: "Secteur 2 (sans OPTAM)",
+                      desc: "Depassements libres, cotisations au taux plein",
+                    },
+                    {
+                      value: "3",
+                      title: "Secteur 3 / Non conventionne",
+                      desc: "Hors convention Assurance Maladie, tarifs entierement libres",
+                    },
+                  ]
+              ).map((sector) => (
                 <label className="radio-card" key={sector.value}>
                   <input
                     type="radio"
@@ -266,14 +276,6 @@ export function Step0Profil({ state, onChange }: Props) {
           </div>
         )}
 
-        {needsHealthSector && (
-          <div className="field-notice">
-            Les regimes specifiques au secteur sante (cotisations CPAM, ASV, secteurs
-            conventionnels) sont en cours d'integration. La simulation utilise encore les
-            regimes generaux en attendant les calculateurs sectoriels complets.
-          </div>
-        )}
-
         <div className="field">
           <label>Exercez-vous deja cette activite ?</label>
           <div className="toggle-group">
@@ -283,7 +285,7 @@ export function Step0Profil({ state, onChange }: Props) {
               onClick={() =>
                 onChange({
                   est_deja_en_activite: false,
-                  mois_debut_activite: "",
+                  mois_debut_activite: "01",
                   annee_debut_activite: "",
                 })
               }
@@ -296,6 +298,7 @@ export function Step0Profil({ state, onChange }: Props) {
               onClick={() =>
                 onChange({
                   est_deja_en_activite: true,
+                  mois_debut_activite: state.mois_debut_activite || "01",
                 })
               }
             >
@@ -311,7 +314,6 @@ export function Step0Profil({ state, onChange }: Props) {
                   value={state.mois_debut_activite}
                   onChange={(event) => onChange({ mois_debut_activite: event.target.value })}
                 >
-                  <option value="">Mois</option>
                   {MONTHS.map((month) => (
                     <option key={month.value} value={month.value}>
                       {month.label}
@@ -330,6 +332,10 @@ export function Step0Profil({ state, onChange }: Props) {
                   ))}
                 </select>
               </div>
+              <span className="hint">
+                Si vous ne connaissez pas le mois exact, janvier est retenu par prudence pour
+                cristalliser les aides de creation.
+              </span>
             </div>
           )}
         </div>

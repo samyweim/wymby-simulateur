@@ -56,6 +56,10 @@ export function Step3Aides({ state, onChange }: Props) {
           <div className="field-notice">
             Votre profil indique une creation ou reprise d'activite. Les aides au demarrage
             (ACRE, ARCE) sont prises en compte automatiquement si applicable.
+            {(state.type_activite === "sante_medecin" ||
+              state.type_activite === "sante_paramedicale") && (
+              <> L'ACRE est compatible avec l'installation libérale médicale et paramédicale.</>
+            )}
           </div>
         )}
 
@@ -80,25 +84,28 @@ export function Step3Aides({ state, onChange }: Props) {
         </div>
 
         {shouldShow("droits_are", state) && (
-          <div className="field field-indent">
-            <label>Droits ARE restants</label>
-            <div className="input-suffix-wrap">
-              <input
-                type="number"
-                min="0"
-                placeholder="ex. 18 000"
-                value={state.droits_are_restants}
-                onChange={(e) => onChange({ droits_are_restants: e.target.value })}
-              />
-              <span className="input-suffix">EUR</span>
+          <div className="field field-indent field-split">
+            <div className="field-main">
+              <label>Droits ARE restants</label>
+              <div className="input-suffix-wrap">
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="ex. 18 000"
+                  value={state.droits_are_restants}
+                  onChange={(e) => onChange({ droits_are_restants: e.target.value })}
+                />
+                <span className="input-suffix">EUR</span>
+              </div>
+              <span className="hint">
+                Utilise pour estimer l'ARCE comme flux de tresorerie distinct.
+              </span>
             </div>
-            <span className="hint">
-              Utilise pour estimer l'ARCE comme flux de tresorerie distinct.
-            </span>
             {droitsAre > 0 && (
-              <div className="field-validation field-validation-info">
-                ARCE potentielle estimee : <strong>{formatCurrency(arceEstimate)} EUR</strong>,
-                soit {Math.round(FISCAL_PARAMS_2026.aides.CFG_TAUX_ARCE * 100)} % des droits restants.
+              <div className="field-side">
+                <div className="field-validation field-validation-info">
+                  ARCE potentielle : <strong>{formatCurrency(arceEstimate)} EUR</strong>.
+                </div>
               </div>
             )}
           </div>
@@ -152,7 +159,7 @@ export function Step3Aides({ state, onChange }: Props) {
           </div>
         )}
 
-        {state.envisage_associes === true && (
+        {shouldShow("envisage_associes", state) && (
           <div className="field field-indent">
             <label>Capital social envisage</label>
             <div className="input-suffix-wrap">
@@ -166,91 +173,91 @@ export function Step3Aides({ state, onChange }: Props) {
               <span className="input-suffix">EUR</span>
             </div>
             <span className="hint">
-              Montant du capital que vous apportez a la societe (peut etre symbolique : 1 EUR).
+              Permet d'affiner le calcul EURL/SASU (franchise dividendes TNS). Peut etre symbolique : 1 EUR.
             </span>
           </div>
         )}
 
         {shouldShow("tva_question", state) && (
-          <div className="field">
-            <label>Facturez-vous la TVA a vos clients ?</label>
-            <span className="hint">
-              Si votre chiffre d'affaires annuel est inferieur a un certain seuil (franchise en
-              base), vous n'etes pas oblige de facturer la TVA.
-            </span>
-            <div className="toggle-group toggle-group-stack-mobile">
-              <button
-                type="button"
-                className={`toggle-btn ${state.tva_deja_applicable === true ? "active" : ""}`}
-                onClick={() => onChange({ tva_deja_applicable: true })}
-              >
-                Oui, je facture la TVA
-              </button>
-              <button
-                type="button"
-                className={`toggle-btn ${state.tva_deja_applicable === false ? "active" : ""}`}
-                onClick={() => onChange({ tva_deja_applicable: false })}
-              >
-                Non, je suis en franchise de TVA
-              </button>
-              <button
-                type="button"
-                className={`toggle-btn ${state.tva_deja_applicable === null ? "active" : ""}`}
-                onClick={() => onChange({ tva_deja_applicable: null })}
-              >
-                Je ne sais pas
-              </button>
+          <div className="field field-split">
+            <div className="field-main">
+              <label>Facturez-vous la TVA a vos clients ?</label>
+              <span className="hint">
+                Si votre chiffre d'affaires annuel est inferieur a un certain seuil (franchise en
+                base), vous n'etes pas oblige de facturer la TVA.
+              </span>
+              <div className="toggle-group toggle-group-stack-mobile">
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.tva_deja_applicable === true ? "active" : ""}`}
+                  onClick={() => onChange({ tva_deja_applicable: true })}
+                >
+                  Oui, je facture la TVA
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.tva_deja_applicable === false ? "active" : ""}`}
+                  onClick={() => onChange({ tva_deja_applicable: false })}
+                >
+                  Non, je suis en franchise de TVA
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.tva_deja_applicable === null ? "active" : ""}`}
+                  onClick={() => onChange({ tva_deja_applicable: null })}
+                >
+                  Je ne sais pas
+                </button>
+              </div>
+
+              {state.tva_deja_applicable === null && caNum > 0 && (
+                <div className="field-info">
+                  {isTvaExonereeSante(state) ? (
+                    <>
+                      Vous pouvez laisser cette option telle quelle : le simulateur traitera
+                      l'activite comme <strong>exoneree de TVA</strong>.
+                    </>
+                  ) : (
+                    <>
+                      Vous pouvez laisser cette option sur "Je ne sais pas" : le simulateur
+                      l'estimera a partir de votre CA et de votre activite.
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-
-            {isTvaExonereeSante(state) && (
-              <div className="field-validation field-validation-positive">
-                Votre activite releve ici d'un regime <strong>exonere de TVA</strong>.
-              </div>
-            )}
-
-            {!isTvaExonereeSante(state) && tvaSeuils && caNum > 0 && (
-              <div
-                className={`field-validation ${
-                  caNum < tvaSeuils.franchise
-                    ? "field-validation-positive"
-                    : caNum <= tvaSeuils.tolerance
-                      ? "field-validation-info"
-                      : "field-validation-warning"
-                }`}
-              >
-                {caNum < tvaSeuils.franchise ? (
-                  <>
-                    Sous le seuil de franchise TVA de{" "}
-                    <strong>{formatCurrency(tvaSeuils.franchise)} EUR</strong>.
-                  </>
-                ) : caNum <= tvaSeuils.tolerance ? (
-                  <>
-                    Au-dessus du seuil de franchise TVA de{" "}
-                    <strong>{formatCurrency(tvaSeuils.franchise)} EUR</strong> : une sortie de
-                    franchise est a surveiller.
-                  </>
-                ) : (
-                  <>
-                    Au-dessus du seuil majore TVA de{" "}
-                    <strong>{formatCurrency(tvaSeuils.tolerance)} EUR</strong> : la TVA doit en
-                    principe s'appliquer immediatement.
-                  </>
+            {((isTvaExonereeSante(state) || (!!tvaSeuils && caNum > 0))) && (
+              <div className="field-side">
+                {isTvaExonereeSante(state) && (
+                  <div className="field-validation field-validation-positive">
+                    Activite <strong>exoneree de TVA</strong>.
+                  </div>
                 )}
-              </div>
-            )}
 
-            {state.tva_deja_applicable === null && caNum > 0 && (
-              <div className="field-info">
-                {isTvaExonereeSante(state) ? (
-                  <>
-                    Vous pouvez laisser cette option telle quelle : le simulateur traitera
-                    l'activite comme <strong>exoneree de TVA</strong>.
-                  </>
-                ) : (
-                  <>
-                    Vous pouvez laisser cette option sur "Je ne sais pas" : le simulateur
-                    l'estimera a partir de votre CA et de votre activite.
-                  </>
+                {!isTvaExonereeSante(state) && tvaSeuils && caNum > 0 && (
+                  <div
+                    className={`field-validation ${
+                      caNum < tvaSeuils.franchise
+                        ? "field-validation-positive"
+                        : caNum <= tvaSeuils.tolerance
+                          ? "field-validation-info"
+                          : "field-validation-warning"
+                    }`}
+                  >
+                    {caNum < tvaSeuils.franchise ? (
+                      <>
+                        Sous la franchise TVA de <strong>{formatCurrency(tvaSeuils.franchise)} EUR</strong>.
+                      </>
+                    ) : caNum <= tvaSeuils.tolerance ? (
+                      <>
+                        Au-dessus de la franchise TVA, sortie a surveiller.
+                      </>
+                    ) : (
+                      <>
+                        Au-dessus du seuil majore TVA.
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )}

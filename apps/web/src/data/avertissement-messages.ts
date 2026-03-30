@@ -3,6 +3,17 @@
  * vers des messages lisibles par l'utilisateur.
  */
 
+// Codes purement techniques : jamais affichés à l'utilisateur
+const CODES_TECHNIQUES = new Set([
+  "SIMULATION_SANTE_PAMC_ESTIMATIVE",
+  "AIDE_CPAM_MALADIE_CALCULEE_SUR_ASSIETTE_GLOBALE_FAUTE_DE_VENTILATION",
+  "VENTILATION_HONORAIRES_CONVENTIONNES_ET_DEPASSEMENTS_NON_COLLECTEE",
+  "SELARL_IS_MEMES_REGLES_SOCIAL_FISCAL_QUE_EURL_IS_PROFESSIONS_SANTE",
+  "SELAS_IS_MEMES_REGLES_SOCIAL_FISCAL_QUE_SASU_IS_PROFESSIONS_SANTE",
+  "SIMULATION_SOCIETE_SANTE_BASEE_SUR_MODELE_SOCIETE_GENERALISTE",
+  "IR_CALCUL_DIFFERENTIEL_AUTRES_REVENUS_FOYER",
+]);
+
 export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
   // ── Seuils micro ─────────────────────────────────────────────────────────
   DEPASSEMENT_SEUIL_MICRO_BNC:
@@ -61,6 +72,26 @@ export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
   DERNIER_EXERCICE_MICRO_POSSIBLE:
     "Ce scénario micro est possible jusqu'au 31/12 de l'année en cours uniquement. " +
     "Votre CA dépasse le seuil pour la première fois.",
+
+  // ── Santé — CPAM ─────────────────────────────────────────────────────────
+  AIDE_CPAM_APPROCHEE_EN_MICRO_CPAM_CALCUL_PROGRESSIF_REQUIS:
+    "En micro-BNC, la prise en charge CPAM sur la cotisation maladie est estimée de façon " +
+    "forfaitaire. Le montant exact dépend du détail de vos honoraires conventionnés et du " +
+    "barème progressif CPAM — un expert-comptable affinera ce chiffre.",
+
+  S2_NON_OPTAM_TAUX_PLEIN_MALADIE_SANS_AIDE_CPAM:
+    "Secteur 2 sans OPTAM : aucune prise en charge CPAM sur la cotisation maladie. " +
+    "Le taux plein est intégralement à votre charge. L'adhésion à l'OPTAM réduit ce coût.",
+
+  COTISATIONS_ORDINALES_CPAM_ASV_SPECIFIQUES_NON_INTEGREES_DANS_ARBITRAGE_SOCIETE_SANTE:
+    "Pour les formes sociétaires (SELARL/SELAS), les cotisations ordinales spécifiques " +
+    "aux professions de santé et l'ASV ne sont pas intégrées dans cette estimation. " +
+    "Consultez un expert-comptable spécialisé santé pour valider le chiffre.",
+
+  // ── Amortissements différés ───────────────────────────────────────────────
+  AMORTISSEMENTS_DIFFERES_ARD:
+    "Une partie de vos amortissements est reportée sur les exercices suivants. " +
+    "Les amortissements ne peuvent pas créer ou aggraver un déficit BIC.",
 };
 
 export type DisplayMessageLevel = "info" | "warning";
@@ -76,26 +107,28 @@ export interface DisplayMessage {
  * Filtre les messages purement techniques non destinés à l'utilisateur.
  */
 export function translateAvertissement(raw: string): string | null {
-  // Supprimer les messages internes non destinés à l'utilisateur
   if (raw.startsWith("[ERREUR INPUT]")) return null;
   if (raw.startsWith("TODO")) return null;
-  // Code informatif interne : IR différentiel calculé avec données foyer complètes.
-  // Ne pas afficher à l'utilisateur — ce n'est pas une action requise.
-  if (raw === "IR_CALCUL_DIFFERENTIEL_AUTRES_REVENUS_FOYER") return null;
 
-  // Correspondance exacte
+  // Codes purement techniques : jamais affichés
+  if (CODES_TECHNIQUES.has(raw)) return null;
+
+  // Correspondance exacte dans la table de traduction
   if (AVERTISSEMENT_TRANSLATIONS[raw]) {
     return AVERTISSEMENT_TRANSLATIONS[raw];
   }
 
-  // Correspondance par préfixe (pour les messages dynamiques générés avec des données variables)
+  // Correspondance par préfixe (messages dynamiques avec données variables, ex. AMORTISSEMENTS_DIFFERES_ARD_12345)
   for (const key of Object.keys(AVERTISSEMENT_TRANSLATIONS)) {
     if (raw.startsWith(key)) {
       return AVERTISSEMENT_TRANSLATIONS[key] ?? null;
     }
   }
 
-  // Retourner le message brut si pas de traduction (peut déjà être lisible)
+  // Si le code ressemble à un identifiant technique (tout en majuscules + tirets bas) : on le masque
+  if (/^[A-Z][A-Z0-9_]+$/.test(raw)) return null;
+
+  // Message déjà lisible (phrase humaine) : on l'affiche tel quel
   return raw;
 }
 

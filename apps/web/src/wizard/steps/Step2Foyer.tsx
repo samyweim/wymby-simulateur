@@ -75,7 +75,7 @@ export function Step2Foyer({ state, onChange }: Props) {
           </div>
           <span className="hint">Chaque enfant reduit votre impot via le quotient familial.</span>
           {nbParts > 0 && (
-            <div className="field-validation field-validation-info">
+            <div className="field-validation field-validation-info" style={{ marginTop: "0.5rem" }}>
               Foyer estime a <strong>{nbParts}</strong> part{nbParts > 1 ? "s" : ""} fiscale
               {nbParts > 1 ? "s" : ""}.
             </div>
@@ -179,7 +179,7 @@ export function Step2Foyer({ state, onChange }: Props) {
                 <a href="https://www.impots.gouv.fr" target="_blank" rel="noreferrer"> impots.gouv.fr</a>.
               </span>
               {nbParts > 0 && (
-                <div className="field-validation field-validation-info">
+                <div className="field-validation field-validation-info" style={{ marginTop: "0.5rem" }}>
                   Seuil VFL estime pour votre foyer : <strong>{formatCurrency(seuilVfl)} EUR</strong>.
                 </div>
               )}
@@ -203,18 +203,11 @@ export function Step2Foyer({ state, onChange }: Props) {
                     className={`field-validation ${
                       rfr <= seuilVfl ? "field-validation-positive" : "field-validation-warning"
                     }`}
+                    style={{ marginTop: "0.5rem" }}
                   >
-                    {rfr <= seuilVfl ? (
-                      <>
-                        RFR sous le seuil estime de <strong>{formatCurrency(seuilVfl)} EUR</strong> :
-                        le versement liberatoire peut rester envisageable.
-                      </>
-                    ) : (
-                      <>
-                        RFR au-dessus du seuil estime de <strong>{formatCurrency(seuilVfl)} EUR</strong> :
-                        le versement liberatoire est en principe exclu.
-                      </>
-                    )}
+                    {rfr <= seuilVfl
+                      ? "RFR sous le seuil VFL estime."
+                      : "RFR au-dessus du seuil VFL estime."}
                   </div>
                 )}
               </div>

@@ -27,6 +27,19 @@ function pct(n: number | undefined): string {
   return `${Math.round(n * 100)} %`;
 }
 
+function fmtIr(
+  value: number | undefined,
+  niveauFiabilite: DetailCalculScenario["niveau_fiabilite"],
+  optionVfl: DetailCalculScenario["option_vfl"]
+): string {
+  if (value === undefined || value === null) return "—";
+  const formatted = fmt(value);
+  if (niveauFiabilite === "estimation" && optionVfl !== "VFL_OUI") {
+    return `~${formatted} (estimation)`;
+  }
+  return formatted;
+}
+
 function DetailRow({
   label,
   value,
@@ -135,7 +148,9 @@ export function ScenarioCard({
         </div>
         <div className="sc-metric">
           <span className="sc-metric-label">Impôt sur le revenu</span>
-          <span className="sc-metric-value text-numeric">{fmt(inter.IR_ATTRIBUABLE_SCENARIO)}</span>
+          <span className="sc-metric-value text-numeric">
+            {fmtIr(inter.IR_ATTRIBUABLE_SCENARIO, scenario.niveau_fiabilite, scenario.option_vfl)}
+          </span>
         </div>
         {(inter.IS_DU_SCENARIO ?? 0) > 0 && (
           <div className="sc-metric">
@@ -214,7 +229,15 @@ export function ScenarioCard({
                 <DetailRow label="TVA nette due" value={inter.TVA_NETTE_DUE} negative />
               )}
               <DetailRow label="Net avant IR" value={inter.NET_AVANT_IR} isSubtotal />
-              <DetailRow label="IR attribuable" value={inter.IR_ATTRIBUABLE_SCENARIO} negative />
+              <DetailRow
+                label={
+                  scenario.niveau_fiabilite === "estimation" && scenario.option_vfl !== "VFL_OUI"
+                    ? "IR attribuable (estimation)"
+                    : "IR attribuable"
+                }
+                value={inter.IR_ATTRIBUABLE_SCENARIO}
+                negative
+              />
               <DetailRow label="Net après IR" value={inter.NET_APRES_IR} isFinal />
             </tbody>
           </table>

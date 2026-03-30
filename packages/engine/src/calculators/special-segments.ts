@@ -24,12 +24,19 @@ interface SpecialInput {
   recettes: number;
   charges_deductibles: number;
   charges_decaissees: number;
+  tva_nette_due?: number;
   amortissements?: number;
   autres_revenus_foyer?: number;
   autres_charges_foyer?: number;
   nombre_parts_fiscales: number;
   secteur_conventionnel?: SecteurConventionnel;
   sous_segment_activite?: SousSegmentActivite;
+  acre_active?: boolean;
+  date_creation?: Date;
+  droits_are_restants?: number;
+  remuneration_dirigeant?: number;
+  dividendes_envisages?: number;
+  capital_social?: number;
   option_raap_taux_reduit?: boolean;
   est_redevable_raap?: boolean;
   autres_revenus_activite_foyer?: number;
@@ -107,11 +114,17 @@ function calculerRSPM(input: SpecialInput, params: FP, logger?: EngineLogger): S
 
 function calculerMicroSante(input: SpecialInput, params: FP, logger?: EngineLogger): SpecialCalculationResult {
   const tauxBase = params.social.CFG_TAUX_SOCIAL_MICRO_BNC_SSI;
-  const aide = input.base_id === "S_MICRO_BNC_SECTEUR_1"
-    ? params.sante.CFG_TAUX_MALADIE_SECTEUR_1.prise_en_charge_cpam_max
-    : 0;
-  const cotisations = Math.round(input.recettes * (tauxBase - aide));
+  // L'assiette sociale micro-BNC SSI est le CA brut (taux exprimé "sur CA HT").
+  // L'abattement 34% ne s'applique qu'à l'assiette IR, pas aux cotisations sociales.
   const baseIr = Math.round(input.recettes * (1 - params.abattements.CFG_ABATTEMENT_MICRO_BNC));
+  const aide =
+    input.base_id === "S_MICRO_BNC_SECTEUR_1"
+      ? params.sante.CFG_TAUX_MALADIE_SECTEUR_1.prise_en_charge_cpam_max
+      : params.sante.CFG_TAUX_MALADIE_SECTEUR_2_NON_OPTAM.prise_en_charge_cpam;
+  const cotisationsBrutes = Math.round(input.recettes * tauxBase);
+  const aideCpam = Math.round(input.recettes * aide);
+  const cotisations = Math.max(0, cotisationsBrutes - aideCpam);
+  const assietteSociale = input.recettes;
   const ir = f_ir_attribuable_scenario(
     baseIr,
     input.autres_revenus_foyer,
@@ -131,14 +144,19 @@ function calculerMicroSante(input: SpecialInput, params: FP, logger?: EngineLogg
       chargesDeductibles: 0,
       amortissements: 0,
       cotisations,
-    baseIr,
-    ir: ir.ir_attribuable_scenario,
+      baseIr,
+      ir: ir.ir_attribuable_scenario,
       is: 0,
       netAvantIr,
       netApresIr,
-      aideCpam: Math.round(input.recettes * aide),
+      aideCpam,
+      assietteSociale: Math.round(assietteSociale),
     }),
     niveau_fiabilite: "estimation",
+    avertissements:
+      input.base_id === "S_MICRO_BNC_SECTEUR_1"
+        ? ["AIDE_CPAM_APPROCHEE_EN_MICRO_CPAM_CALCUL_PROGRESSIF_REQUIS"]
+        : [],
   };
 }
 
@@ -155,33 +173,39 @@ function calculerReelSanteSecteur1(
     input.recettes * params.sante.CFG_PARAM_DEDUCTION_COMPLEMENTAIRE_SANTE.taux_sur_honoraires_conventionnels;
   const resultatComptable = input.recettes - input.charges_deductibles - (input.amortissements ?? 0);
   const resultatFiscal = Math.max(0, resultatComptable - deductionsGroupe3 - deductionComplementaire);
-  const assiette = resultatFiscal * (1 - params.social.CFG_REGLES_ASSIETTE_SOCIALE_UNIQUE_IR.abattement_forfaitaire);
-
-  const retraiteBaseBrute = Math.min(assiette, params.sante.CFG_CARMF_2026.retraite_base.plafond_t1) *
-    params.sante.CFG_CARMF_2026.retraite_base.taux_t1 +
-    Math.max(0, Math.min(assiette, params.sante.CFG_CARMF_2026.retraite_base.plafond_t2) - params.sante.CFG_CARMF_2026.retraite_base.plafond_t1) *
+  const assiette = f_assietteSante(resultatComptable, params);
+  const maladie = f_maladie_pamc_brut_et_aide(assiette, "secteur_1", params);
+  const retraiteBaseBrute =
+    Math.min(assiette, params.sante.CFG_CARMF_2026.retraite_base.plafond_t1) *
+      params.sante.CFG_CARMF_2026.retraite_base.taux_t1 +
+    Math.max(
+      0,
+      Math.min(assiette, params.sante.CFG_CARMF_2026.retraite_base.plafond_t2) -
+        params.sante.CFG_CARMF_2026.retraite_base.plafond_t1
+    ) *
       params.sante.CFG_CARMF_2026.retraite_base.taux_t2;
-  const participationCpam = _cotisationParTranches(
-    assiette,
-    [
-      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_1,
-      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_2,
-      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_3,
-    ],
-    "taux_cpam"
-  );
+  const participationCpam = f_participation_cpam_retraite_base_carmf(assiette, params);
   const retraiteBaseNette = Math.max(0, retraiteBaseBrute - participationCpam);
   const retraiteComplementaire =
     Math.min(assiette, params.sante.CFG_CARMF_2026.retraite_complementaire.plafond) *
     params.sante.CFG_CARMF_2026.retraite_complementaire.taux;
-  const maladie = assiette * params.sante.CFG_TAUX_MALADIE_SECTEUR_1.taux_net_praticien_min;
   const ij = assiette * params.sante.CFG_REGLES_PAMC.indemnites_journalieres_taux;
-  const csgCrds = assiette * 0.9825 * (params.sante.CFG_REGLES_PAMC.csg_taux + params.sante.CFG_REGLES_PAMC.crds_taux);
-  const cfp = 0;
-  const asv = params.sante.CFG_CARMF_2026.asv.part_forfaitaire_secteur_1_medecin +
+  const assietteCsgCrds =
+    assiette *
+    (1 - params.social.CFG_TAUX_SOCIAL_TNS_BIC.csg_crds.assiette_abattement);
+  const csgCrds =
+    assietteCsgCrds *
+    (params.sante.CFG_REGLES_PAMC.csg_taux + params.sante.CFG_REGLES_PAMC.crds_taux);
+  const cfp = assiette * params.sante.CFG_REGLES_PAMC.cfp_taux;
+  const asvPraticien = params.sante.CFG_CARMF_2026.asv.part_forfaitaire_secteur_1_medecin +
     Math.min(assiette, params.sante.CFG_CARMF_2026.asv.plafond_assiette) *
       params.sante.CFG_CARMF_2026.asv.ajustement_taux_secteur_1_medecin;
-  const cotisations = Math.round(maladie + ij + csgCrds + cfp + retraiteBaseNette + retraiteComplementaire + asv);
+  const asvCpam = params.sante.CFG_CARMF_2026.asv.part_forfaitaire_secteur_1_cpam +
+    Math.min(assiette, params.sante.CFG_CARMF_2026.asv.plafond_assiette) *
+      params.sante.CFG_CARMF_2026.asv.ajustement_taux_secteur_1_cpam;
+  const cotisations = Math.round(
+    maladie.net_praticien + ij + csgCrds + cfp + retraiteBaseNette + retraiteComplementaire + asvPraticien
+  );
 
   logger?.trace(7, "Calcul santé — secteur 1 réel", {
     scenario_id: input.scenario_id,
@@ -192,7 +216,8 @@ function calculerReelSanteSecteur1(
       assiette_sociale: assiette,
       retraite_base_nette: retraiteBaseNette,
       retraite_complementaire: retraiteComplementaire,
-      asv,
+      asv_praticien: asvPraticien,
+      asv_cpam: asvCpam,
       csg_crds: csgCrds,
       cfp,
       ij,
@@ -217,16 +242,21 @@ function calculerReelSanteSecteur1(
       recettes: input.recettes,
       chargesDecaissees: input.charges_decaissees,
       chargesDeductibles: input.charges_deductibles,
-    amortissements: input.amortissements ?? 0,
-    cotisations,
-    baseIr: Math.round(resultatFiscal),
+      amortissements: input.amortissements ?? 0,
+      cotisations,
+      baseIr: Math.round(resultatFiscal),
       ir: ir.ir_attribuable_scenario,
       is: 0,
       netAvantIr,
       netApresIr,
-      aideCpam: Math.round(participationCpam),
+      aideCpam: Math.round(maladie.aide_cpam + participationCpam + asvCpam),
+      assietteSociale: assiette,
     }),
     niveau_fiabilite: "estimation",
+    avertissements: [
+      "SIMULATION_SANTE_PAMC_ESTIMATIVE",
+      "AIDE_CPAM_MALADIE_CALCULEE_SUR_ASSIETTE_GLOBALE_FAUTE_DE_VENTILATION",
+    ],
   };
 }
 
@@ -239,7 +269,7 @@ function calculerReelSanteAutreSecteur(
   const deductions = _calculerDeductionsFiscalesSante(input, params, variante);
   const resultatComptable = input.recettes - input.charges_deductibles - (input.amortissements ?? 0);
   const resultatFiscal = Math.max(0, resultatComptable - deductions.total);
-  const assiette = resultatFiscal * (1 - params.social.CFG_REGLES_ASSIETTE_SOCIALE_UNIQUE_IR.abattement_forfaitaire);
+  const assiette = f_assietteSante(resultatComptable, params);
 
   const branches = _calculerBranchesSante({
     assiette,
@@ -272,6 +302,7 @@ function calculerReelSanteAutreSecteur(
     branches.maladie +
       branches.ij +
       branches.csgCrds +
+      branches.cfp +
       branches.retraiteBase +
       branches.retraiteComplementaire +
       branches.invaliditeDeces +
@@ -285,6 +316,9 @@ function calculerReelSanteAutreSecteur(
     "SIMULATION_SANTE_PAMC_ESTIMATIVE",
     "VENTILATION_HONORAIRES_CONVENTIONNES_ET_DEPASSEMENTS_NON_COLLECTEE",
   ];
+  if (variante === "secteur_2_non_optam") {
+    avertissements.push("S2_NON_OPTAM_TAUX_PLEIN_MALADIE_SANS_AIDE_CPAM");
+  }
   if (branches.avertissementInvalidite) avertissements.push(branches.avertissementInvalidite);
   if (variante !== "hors_convention") {
     avertissements.push("AIDE_CPAM_MALADIE_CALCULEE_SUR_ASSIETTE_GLOBALE_FAUTE_DE_VENTILATION");
@@ -303,6 +337,7 @@ function calculerReelSanteAutreSecteur(
       netAvantIr,
       netApresIr,
       aideCpam: Math.round(branches.aideCpam),
+      assietteSociale: assiette,
     }),
     niveau_fiabilite: "estimation",
     avertissements,
@@ -315,6 +350,8 @@ function calculerSocieteSante(
   logger: EngineLogger | undefined,
   type: "SELARL" | "SELAS"
 ): SpecialCalculationResult {
+  const resultatCourant =
+    input.recettes - input.charges_deductibles - (input.amortissements ?? 0);
   const societe = calculerSociete(
     {
       scenario_id: input.scenario_id,
@@ -322,14 +359,19 @@ function calculerSocieteSante(
       CHARGES_DEDUCTIBLES: input.charges_deductibles,
       CHARGES_DECAISSEES: input.charges_decaissees,
       DOTATIONS_AMORTISSEMENTS: input.amortissements,
-      TVA_NETTE_DUE: 0,
+      TVA_NETTE_DUE: input.tva_nette_due ?? 0,
       type_societe: type === "SELARL" ? "EURL_IS" : "SASU_IS",
-      remuneration_dirigeant: Math.max(0, input.recettes - input.charges_deductibles - (input.amortissements ?? 0)) * 0.5,
-      dividendes_envisages: 0,
-      acre_active: false,
+      remuneration_dirigeant:
+        input.remuneration_dirigeant ??
+        Math.max(0, resultatCourant) * 0.5,
+      dividendes_envisages: input.dividendes_envisages ?? 0,
+      acre_active: input.acre_active,
       autres_revenus_foyer: input.autres_revenus_foyer,
       autres_charges_foyer: input.autres_charges_foyer,
       nombre_parts_fiscales: input.nombre_parts_fiscales,
+      droits_are_restants: input.droits_are_restants,
+      date_creation: input.date_creation,
+      capital_social: input.capital_social,
     },
     params,
     logger
@@ -337,6 +379,9 @@ function calculerSocieteSante(
 
   societe.niveau_fiabilite = "estimation";
   societe.avertissements.push(
+    type === "SELARL"
+      ? "SELARL_IS_MEMES_REGLES_SOCIAL_FISCAL_QUE_EURL_IS_PROFESSIONS_SANTE"
+      : "SELAS_IS_MEMES_REGLES_SOCIAL_FISCAL_QUE_SASU_IS_PROFESSIONS_SANTE",
     "SIMULATION_SOCIETE_SANTE_BASEE_SUR_MODELE_SOCIETE_GENERALISTE",
     "COTISATIONS_ORDINALES_CPAM_ASV_SPECIFIQUES_NON_INTEGREES_DANS_ARBITRAGE_SOCIETE_SANTE"
   );
@@ -423,8 +468,8 @@ function calculerLmnpReel(input: SpecialInput, params: FP, logger?: EngineLogger
 
 function calculerArtisteBncMicro(input: SpecialInput, params: FP, logger?: EngineLogger): SpecialCalculationResult {
   const baseIr = Math.round(input.recettes * (1 - params.abattements.CFG_ABATTEMENT_MICRO_BNC));
-  const assietteSociale = baseIr * 1.15;
-  const cotisationsHorsRaap = Math.round(assietteSociale * 0.16);
+  const assietteSociale = baseIr * params.culture.CFG_COEFFICIENT_ASSIETTE_ARTISTE_BNC;
+  const cotisationsHorsRaap = Math.round(assietteSociale * params.culture.CFG_TAUX_GLOBAL_COTISATIONS_ARTISTE_BNC_MICRO_HORS_RAAP);
   const raap = input.est_redevable_raap
     ? Math.round(
         assietteSociale *
@@ -464,7 +509,7 @@ function calculerArtisteBncMicro(input: SpecialInput, params: FP, logger?: Engin
 }
 
 function calculerArtisteTsForfait(input: SpecialInput, params: FP, logger?: EngineLogger): SpecialCalculationResult {
-  const assietteSociale = input.recettes * 0.9825;
+  const assietteSociale = input.recettes * params.culture.CFG_TAUX_ASSIETTE_TS_ARTISTE_AUTEUR;
   const vieillesse = Math.round(
     Math.min(assietteSociale, params.referentiels.CFG_PASS_2026) *
       params.culture.CFG_TAUX_COTISATIONS_ARTISTE_AUTEUR.vieillesse_plafonnee.taux_net_auteur
@@ -523,6 +568,7 @@ function finalize(input: {
   netAvantIr: number;
   netApresIr: number;
   aideCpam?: number;
+  assietteSociale?: number;
 }): SpecialCalculationResult {
   return {
     intermediaires: {
@@ -536,8 +582,8 @@ function finalize(input: {
       RESULTAT_COMPTABLE: input.recettes - input.chargesDeductibles - input.amortissements,
       RESULTAT_FISCAL_AVANT_EXONERATIONS: input.baseIr,
       RESULTAT_FISCAL_APRES_EXONERATIONS: input.baseIr,
-      ASSIETTE_SOCIALE_BRUTE: input.baseIr,
-      ASSIETTE_SOCIALE_APRES_AIDES: input.baseIr,
+      ASSIETTE_SOCIALE_BRUTE: input.assietteSociale ?? input.baseIr,
+      ASSIETTE_SOCIALE_APRES_AIDES: input.assietteSociale ?? input.baseIr,
       COTISATIONS_SOCIALES_BRUTES: input.cotisations,
       REDUCTION_ACRE: 0,
       AIDE_CPAM_IMPUTEE: input.aideCpam ?? 0,
@@ -607,16 +653,20 @@ function _calculerBranchesSante(input: {
   curps: number;
   ij: number;
   csgCrds: number;
+  cfp: number;
   avertissementInvalidite?: string;
 } {
   const isMedecin = input.sousSegment === "medecin" || input.sousSegment === undefined;
   const ij = input.assiette * input.params.sante.CFG_REGLES_PAMC.indemnites_journalieres_taux;
-  const csgCrds =
+  const assietteCsgCrds =
     input.assiette *
-    0.9825 *
+    (1 - input.params.social.CFG_TAUX_SOCIAL_TNS_BIC.csg_crds.assiette_abattement);
+  const csgCrds =
+    assietteCsgCrds *
     (input.params.sante.CFG_REGLES_PAMC.csg_taux + input.params.sante.CFG_REGLES_PAMC.crds_taux);
+  const cfp = input.assiette * input.params.sante.CFG_REGLES_PAMC.cfp_taux;
 
-  const maladieInfo = _calculerMaladieSante(input.assiette, input.params, input.variante);
+  const maladieInfo = f_maladie_pamc_brut_et_aide(input.assiette, input.variante, input.params);
 
   if (isMedecin) {
     const carmf = input.params.sante.CFG_CARMF_2026;
@@ -656,8 +706,8 @@ function _calculerBranchesSante(input: {
     );
 
     return {
-      maladie: maladieInfo.maladie,
-      aideCpam: maladieInfo.aideCpam,
+      maladie: maladieInfo.net_praticien,
+      aideCpam: maladieInfo.aide_cpam,
       retraiteBase,
       retraiteComplementaire,
       invaliditeDeces,
@@ -665,6 +715,7 @@ function _calculerBranchesSante(input: {
       curps,
       ij,
       csgCrds,
+      cfp,
       avertissementInvalidite,
     };
   }
@@ -692,8 +743,8 @@ function _calculerBranchesSante(input: {
   );
 
   return {
-    maladie: maladieInfo.maladie,
-    aideCpam: maladieInfo.aideCpam,
+    maladie: maladieInfo.net_praticien,
+    aideCpam: maladieInfo.aide_cpam,
     retraiteBase,
     retraiteComplementaire,
     invaliditeDeces: carpimko.invalidite_deces.montant_forfaitaire,
@@ -701,34 +752,72 @@ function _calculerBranchesSante(input: {
     curps,
     ij,
     csgCrds,
+    cfp,
   };
 }
 
-function _calculerMaladieSante(
+function f_assietteSante(resultatFiscal: number, params: FP): number {
+  return resultatFiscal * (1 - params.social.CFG_REGLES_ASSIETTE_SOCIALE_UNIQUE_IR.abattement_forfaitaire);
+}
+
+export function f_maladie_pamc_brut_et_aide(
   assiette: number,
-  params: FP,
-  variante: "secteur_2_optam" | "secteur_2_non_optam" | "hors_convention"
-): { maladie: number; aideCpam: number } {
-  if (variante === "secteur_2_optam") {
-    const tauxBrut = params.sante.CFG_TAUX_MALADIE_SECTEUR_2_OPTAM.taux_brut_max_assiette_cpam;
-    const aideCpam = assiette * params.sante.CFG_TAUX_MALADIE_SECTEUR_2_OPTAM.prise_en_charge_cpam_max;
+  secteur: "secteur_1" | "secteur_2_optam" | "secteur_2_non_optam" | "hors_convention",
+  params: FP
+): { brut: number; aide_cpam: number; net_praticien: number } {
+  const bareme = params.sante.CFG_BAREME_MALADIE_PAMC_UNIFIE.sur_assiette_participation_cpam.tranches;
+  const low = (bareme[0]?.a_pass ?? 0) * params.referentiels.CFG_PASS_2026;
+  const high = (bareme[1]?.a_pass ?? 0) * params.referentiels.CFG_PASS_2026;
+  const brutProgressifMax = params.sante.CFG_TAUX_MALADIE_SECTEUR_1.taux_brut_max_assiette_cpam;
+  const aideMax =
+    secteur === "secteur_1"
+      ? params.sante.CFG_TAUX_MALADIE_SECTEUR_1.prise_en_charge_cpam_max
+      : secteur === "secteur_2_optam"
+        ? params.sante.CFG_TAUX_MALADIE_SECTEUR_2_OPTAM.prise_en_charge_cpam_max
+        : 0;
+  const tauxPlein =
+    secteur === "hors_convention"
+      ? params.sante.CFG_TAUX_MALADIE_HORS_CONVENTION.taux_effectif_total
+      : params.sante.CFG_REGLES_PAMC.maladie_taux_brut;
+
+  if (assiette <= low) {
+    return { brut: 0, aide_cpam: 0, net_praticien: 0 };
+  }
+
+  if (assiette >= high) {
     return {
-      maladie: assiette * tauxBrut - aideCpam,
-      aideCpam,
+      brut: assiette * tauxPlein,
+      aide_cpam: 0,
+      net_praticien: assiette * tauxPlein,
     };
   }
 
-  if (variante === "secteur_2_non_optam") {
-    return {
-      maladie: assiette * params.sante.CFG_TAUX_MALADIE_SECTEUR_2_NON_OPTAM.taux_brut_max,
-      aideCpam: 0,
-    };
-  }
-
+  const progress = (assiette - low) / (high - low);
+  const brut =
+    secteur === "hors_convention"
+      ? assiette * params.sante.CFG_TAUX_MALADIE_HORS_CONVENTION.taux_effectif_total
+      : assiette * brutProgressifMax * progress;
+  const aide_cpam = secteur === "hors_convention" ? 0 : assiette * aideMax * progress;
   return {
-    maladie: assiette * params.sante.CFG_TAUX_MALADIE_HORS_CONVENTION.taux_effectif_total,
-    aideCpam: 0,
+    brut,
+    aide_cpam,
+    net_praticien: Math.max(0, brut - aide_cpam),
   };
+}
+
+export function f_participation_cpam_retraite_base_carmf(
+  assiette: number,
+  params: FP
+): number {
+  return _cotisationParTranches(
+    assiette,
+    [
+      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_1,
+      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_2,
+      params.sante.CFG_CARMF_2026.participation_cpam_retraite_base.tranche_3,
+    ],
+    "taux_cpam"
+  );
 }
 
 function _cotisationParTranches(

@@ -1209,6 +1209,28 @@ export const FISCAL_PARAMS_2026 = {
      *   - BNC réel : bénéfice × 1,15
      *   - T&S : 98,25 % du revenu si ≤ 4 PASS (192 240 €), 100 % au-delà
      */
+    /**
+     * Coefficient de majoration de l'assiette sociale artiste-auteur BNC (micro et réel).
+     * Le bénéfice BNC est majoré de 15 % pour obtenir l'assiette sociale de référence.
+     * Source : art. L. 382-4 CSS — assiette forfaitisée.
+     */
+    CFG_COEFFICIENT_ASSIETTE_ARTISTE_BNC: 1.15,
+
+    /**
+     * Taux global des cotisations artiste-auteur BNC micro, hors RAAP.
+     * Composantes : vieillesse plafonnée (6,15 %) + CSG (9,2 %) + CRDS (0,5 %) + CFP (0,35 %).
+     * Valeur approchée = 0,16 — à harmoniser avec les composantes individuelles si besoin.
+     */
+    CFG_TAUX_GLOBAL_COTISATIONS_ARTISTE_BNC_MICRO_HORS_RAAP: 0.16,
+
+    /**
+     * Coefficient d'assiette pour le régime T&S artiste-auteur (traitements et salaires).
+     * L'assiette CSG/CRDS est égale à 98,25 % du revenu si celui-ci est ≤ 4 PASS.
+     * Au-delà de 4 PASS, l'assiette est 100 % du revenu (coefficient = 1).
+     * Source : art. L. 136-2 CSS — abattement 1,75 % sur assiette CSG/CRDS salariés/assimilés.
+     */
+    CFG_TAUX_ASSIETTE_TS_ARTISTE_AUTEUR: 0.9825,
+
     CFG_TAUX_COTISATIONS_ARTISTE_AUTEUR: {
       vieillesse_deplafonnee: {
         taux_nominal: 0.004,

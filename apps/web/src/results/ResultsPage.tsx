@@ -189,12 +189,15 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
     calculs_par_scenario.find((scenario) => scenario.scenario_id === comparaison.scenario_reference_id) ??
     sortedScenarios[0] ??
     null;
-  const displayScenarios = sortedScenarios.filter((scenario) =>
-    shouldDisplayWithReference(referenceScenario?.base_id, scenario.base_id)
-  );
 
-  const podiumScenarios = displayScenarios.slice(0, 3);
-  const nextScenarios = displayScenarios.slice(3);
+  // Dédoublonnage par base_id : on garde le meilleur variant (premier dans le classement)
+  const uniqueScenarios = sortedScenarios
+    .filter((scenario) => shouldDisplayWithReference(referenceScenario?.base_id, scenario.base_id))
+    .filter((scenario, index, array) => array.findIndex((s) => s.base_id === scenario.base_id) === index);
+
+  const podiumScenarios = uniqueScenarios.slice(0, 3);
+  const nextScenarios = uniqueScenarios.slice(3, 8);
+  const displayScenarios = uniqueScenarios;
   const podiumScenarioIds = podiumScenarios.map((scenario) => scenario.scenario_id);
   const allScenarioWarnings = new Set(
     calculs_par_scenario.flatMap((scenario) => scenario.avertissements_scenario)
@@ -226,6 +229,10 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
   const isDebug =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("debug");
+  const hasIrEstimation = calculs_par_scenario.some(
+    (scenario) =>
+      scenario.niveau_fiabilite === "estimation" && scenario.option_vfl !== "VFL_OUI"
+  );
 
   const paramsBannerMessage = `Simulation basée sur les paramètres fiscaux 2026 (PASS : ${new Intl.NumberFormat(
     "fr-FR"
@@ -349,6 +356,11 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
               optimalId={optimalId}
               limit={nextScenarios.length}
             />
+            {hasIrEstimation && (
+              <p className="section-sub">
+                * Estimation IR - donnees foyer incompletes ou calcul PAMC progressif
+              </p>
+            )}
           </section>
         )}
 

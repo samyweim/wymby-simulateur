@@ -40,7 +40,7 @@ function mapSegment(type: WizardState["type_activite"]): SegmentActivite {
 function mapSousSegment(type: WizardState["type_activite"]): SousSegmentActivite | undefined {
   if (type === "commerce") return "achat_revente";
   if (type === "prestation") return "prestation";
-  if (type === "liberal_reglemente" || type === "liberal_non_reglemente") return "liberal";
+  if (type === "liberal_reglemente") return "liberal";
   if (type === "sante_medecin") return "medecin";
   if (type === "sante_paramedicale") return "paramedical";
   if (type === "artiste") return "artiste_auteur";
@@ -49,12 +49,19 @@ function mapSousSegment(type: WizardState["type_activite"]): SousSegmentActivite
 }
 
 function mapForme(state: WizardState): FormeJuridique {
-  if (state.envisage_associes === true) return "SASU";
+  const isSante =
+    state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
+  if (state.envisage_associes === true) return isSante ? "SELAS" : "SASU";
+  if (state.envisage_associes === false && isSante) return "SELARL";
   return "non_decide";
 }
 
 function mapRegime(state: WizardState): RegimeFiscalEnvisage {
-  if (state.envisage_associes === true) return "IS";
+  const isSante =
+    state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
+  if (state.envisage_associes === true || (isSante && state.envisage_associes === false)) {
+    return "IS";
+  }
   return "non_decide";
 }
 
@@ -72,23 +79,19 @@ function mapSecteurConventionnel(
 }
 
 function getDateCreation(state: WizardState): string | undefined {
-  if (state.est_deja_en_activite === true && state.annee_debut_activite) {
-    if (state.mois_debut_activite) {
-      return `${state.annee_debut_activite}-${state.mois_debut_activite}-01`;
-    }
-    return `${state.annee_debut_activite}-01-01`;
-  }
   if (state.est_deja_en_activite === false) {
     return "2026-01-01";
+  }
+  if (state.est_deja_en_activite === true) {
+    const year = state.annee_debut_activite;
+    const month = state.mois_debut_activite || "01";
+    if (!year) return undefined;
+    return `${year}-${month.padStart(2, "0")}-01`;
   }
   return undefined;
 }
 
 export function mapWizardToUserInput(state: WizardState): UserInput {
-  const niveauCertitudeCa =
-    state.certitude_ca === "estimÃ©" || state.certitude_ca === "estimÃƒÂ©"
-      ? "estimé"
-      : state.certitude_ca;
   const ca = parseNumRequired(state.ca_annuel);
   const chargesLocaux = parseNum(state.charges_locaux ?? "") ?? 0;
   const chargesMateriel = parseNum(state.charges_materiel ?? "") ?? 0;
@@ -103,11 +106,7 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
   const amortVehicule = parseNum(state.amort_vehicule ?? "") ?? 0;
   const amortMobilier = parseNum(state.amort_mobilier ?? "") ?? 0;
   const amortLogiciels = parseNum(state.amort_logiciels ?? "") ?? 0;
-  // Distinction intentionnelle 0 vs undefined :
-  //   false  → 0         : user explicitly declared no other income → no warning
-  //   null   → undefined : user never answered → engine emits "données manquantes" warning
-  //   true + amount → number : user provided a value
-  //   true + empty  → undefined : user said yes but didn't fill → warning fires
+
   const autresRevenus =
     state.a_autres_revenus === false
       ? 0
@@ -123,16 +122,9 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
   const droitsAre = state.percoit_chomage ? parseNum(state.droits_are_restants) : undefined;
   const nbParts = partsFromSituation(state);
   const zoneResolue = resolveZoneFromCodePostal(state.code_postal ?? "");
-  const zone = zoneResolue !== "aucune" ? zoneResolue : undefined;
   const secteurConventionnel = mapSecteurConventionnel(state.secteur_conventionnel);
   const isHealthProfile =
-    state.type_activite === "sante_medecin" ||
-    state.type_activite === "sante_paramedicale" ||
-    state.type_activite === "liberal_non_reglemente";
-  const estProfessionSante =
-    state.type_activite === "sante_medecin" ||
-    state.type_activite === "sante_paramedicale" ||
-    (state.type_activite === "liberal_non_reglemente" && state.est_profession_sante === true);
+    state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
   const estRemplacant = state.statut_exercice_sante === "remplacant";
   const retrocessionSaisie = parseNum(state.charges_retrocession) ?? 0;
   const chargesRetrocession = isHealthProfile
@@ -141,9 +133,10 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
       : retrocessionSaisie
     : 0;
 
-  const SEUIL_AMORTISSEMENT_MATERIEL = FISCAL_PARAMS_2026.comptabilite.CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN;
+  const seuilAmortissementMateriel =
+    FISCAL_PARAMS_2026.comptabilite.CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN;
   const materielAmortissable =
-    chargesMateriel > SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0;
+    chargesMateriel > seuilAmortissementMateriel ? chargesMateriel : 0;
   const chargesCourantes =
     chargesLocaux +
     chargesPersonnel +
@@ -153,7 +146,7 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
     chargesTelecom +
     chargesRcPro +
     chargesCotisationsPro +
-    (chargesMateriel <= SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0);
+    (chargesMateriel <= seuilAmortissementMateriel ? chargesMateriel : 0);
 
   const chargesBase =
     chargesCourantes > 0
@@ -161,8 +154,6 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
       : state.a_des_charges
         ? (parseNum(state.charges_annuelles) ?? 0)
         : 0;
-
-  // Rétrocession is a deductible charge for remplaçants — added to professional charges
   const chargesTotal = chargesBase + chargesRetrocession;
 
   const amortissementsDetailTotal =
@@ -213,7 +204,7 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
     EST_IMPLANTE_EN_ZFRR_PLUS: zoneResolue === "ZFRR_PLUS",
     EST_IMPLANTE_EN_QPV: zoneResolue === "QPV",
     OPTION_EXONERATION_ZONE_CHOISIE: (zoneResolue as OptionExonerationZone) ?? "aucune",
-    EST_PROFESSION_SANTE: estProfessionSante || undefined,
+    EST_PROFESSION_SANTE: isHealthProfile || undefined,
     A_NUMERO_ADELI: state.a_numero_adeli ?? undefined,
     SECTEUR_CONVENTIONNEL: secteurConventionnel,
     EST_CONVENTIONNE: state.secteur_conventionnel !== "" && state.secteur_conventionnel !== "3",
@@ -221,8 +212,8 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
       state.secteur_conventionnel === "1" || state.secteur_conventionnel === "2_optam",
     EST_REMPLACANT: estRemplacant || undefined,
     CHARGES_RETROCESSION: chargesRetrocession > 0 ? chargesRetrocession : undefined,
-    CAPITAL_SOCIAL: state.capital_social ? (parseNum(state.capital_social) ?? undefined) : undefined,
-    NIVEAU_CERTITUDE_CA: niveauCertitudeCa,
+    CAPITAL_SOCIAL: parseNum(state.capital_social),
+    NIVEAU_CERTITUDE_CA: state.certitude_ca,
     OPTION_VFL_DEMANDEE: rfr !== undefined,
   } as UserInput;
 }

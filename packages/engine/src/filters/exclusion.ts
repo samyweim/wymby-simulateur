@@ -137,6 +137,7 @@ export function filtrerScenariosParExclusion(
   scenarios: ScenarioCandidat[],
   filtres: FiltreExclusionResult,
   input: UserInput,
+  params: FP,
   logger: EngineLogger
 ): { possibles: ScenarioCandidat[]; exclus: ScenarioExclu[] } {
   const possibles: ScenarioCandidat[] = [];
@@ -210,6 +211,36 @@ export function filtrerScenariosParExclusion(
         motifs_exclusion: [filtres.motifs["X03"] ?? "RFR > seuil VFL"],
       });
     }
+  }
+
+  const rspmSeuilMax = params.social.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0;
+  const isRspmOutOfRange =
+    input.SEGMENT_ACTIVITE === "sante" &&
+    input.SOUS_SEGMENT_ACTIVITE === "medecin" &&
+    input.EST_REMPLACANT === true &&
+    input.CA_ENCAISSE_UTILISATEUR > rspmSeuilMax;
+
+  if (
+    isRspmOutOfRange &&
+    !exclus.some((scenario) => scenario.base_id === "S_RSPM")
+  ) {
+    for (let index = possibles.length - 1; index >= 0; index -= 1) {
+      if (possibles[index]?.base_id === "S_RSPM") {
+        possibles.splice(index, 1);
+      }
+    }
+    exclus.push({
+      scenario_id: "S_RSPM",
+      base_id: "S_RSPM",
+      motifs_exclusion: [
+        "FLAG_RSPM_DEPASSEMENT_SEUIL",
+        "BASCULE_PAMC_AU_1ER_JANVIER_N_PLUS_1",
+      ],
+    });
+    logger.warn(3, "Scénario RSPM exclu", {
+      scenario_id: "S_RSPM",
+      motif: "FLAG_RSPM_DEPASSEMENT_SEUIL | BASCULE_PAMC_AU_1ER_JANVIER_N_PLUS_1",
+    });
   }
 
   return { possibles, exclus };

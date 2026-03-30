@@ -211,6 +211,7 @@ export function WymbyPdfReport({ output }: Props) {
   const rankedScenarios = output.comparaison.classement_net_apres_ir
     .map((id) => output.calculs_par_scenario.find((scenario) => scenario.scenario_id === id))
     .filter(Boolean)
+    .filter((scenario, index, array) => array.findIndex((s) => s!.base_id === scenario!.base_id) === index)
     .slice(0, 8) as DetailCalculScenario[];
 
   return (
