@@ -1,6 +1,6 @@
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import type { WizardState } from "../types.js";
 import { shouldShow } from "../visibility.js";
-import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import "./Step.css";
 
 interface Props {
@@ -9,8 +9,8 @@ interface Props {
 }
 
 const CERTITUDES = [
-  { value: "certain", label: "Je suis sûr·e" },
-  { value: "estimé", label: "C'est une estimation" },
+  { value: "certain", label: "Je suis sur(e)" },
+  { value: "estimÃƒÂ©", label: "C'est une estimation" },
   { value: "faible", label: "Je ne sais pas encore" },
 ] as const;
 
@@ -22,13 +22,13 @@ const GENERAL_CHARGE_CATEGORIES = [
   },
   {
     key: "charges_materiel" as const,
-    label: "Matériel et équipements",
-    hint: `Ordinateur, logiciels, mobilier, à amortir si valeur > ${FISCAL_PARAMS_2026.comptabilite.CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN} €`,
+    label: "Materiel et equipements",
+    hint: `Ordinateur, logiciels, mobilier, a amortir si valeur > ${FISCAL_PARAMS_2026.comptabilite.CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN} EUR`,
   },
   {
     key: "charges_personnel" as const,
     label: "Sous-traitants et prestataires",
-    hint: "Honoraires versés à d'autres indépendants ou sociétés",
+    hint: "Honoraires verses a d'autres independants ou societes",
   },
   {
     key: "charges_autres" as const,
@@ -38,27 +38,27 @@ const GENERAL_CHARGE_CATEGORIES = [
   {
     key: "charges_repas" as const,
     label: "Alimentation (repas professionnels)",
-    hint: "Repas seul en déplacement ou repas client dans la limite légale",
+    hint: "Repas seul en deplacement ou repas client dans la limite legale",
   },
   {
     key: "charges_deplacement_transport" as const,
-    label: "Déplacements (transport, carburant, péages)",
-    hint: "Kilométrage professionnel, billets de train, parking",
+    label: "Deplacements (transport, carburant, peages)",
+    hint: "Kilometrage professionnel, billets de train, parking",
   },
   {
     key: "charges_telecom" as const,
-    label: "Télécom (téléphone, internet)",
+    label: "Telecom (telephone, internet)",
     hint: "Quote-part professionnelle de votre abonnement mobile et internet",
   },
   {
     key: "charges_rc_pro" as const,
     label: "Assurance RC Pro",
-    hint: "Responsabilité civile professionnelle, obligatoire pour certaines professions",
+    hint: "Responsabilite civile professionnelle, obligatoire pour certaines professions",
   },
   {
     key: "charges_cotisations_pro" as const,
     label: "Cotisations professionnelles",
-    hint: "Syndicats, ordres professionnels, associations métier",
+    hint: "Syndicats, ordres professionnels, associations metier",
   },
 ] as const;
 
@@ -66,82 +66,93 @@ const HEALTH_CHARGE_CATEGORIES = [
   {
     key: "charges_locaux" as const,
     label: "Loyer et charges du cabinet",
-    hint: "Loyer, électricité, assurance cabinet, charges locatives",
+    hint: "Loyer, electricite, assurance cabinet, charges locatives",
   },
   {
     key: "charges_materiel" as const,
-    label: "Petit matériel médical",
-    hint: "Fournitures, instruments, consommables médicaux",
+    label: "Petit materiel medical",
+    hint: "Fournitures, instruments, consommables medicaux",
   },
   {
     key: "charges_deplacement_transport" as const,
-    label: "Déplacements professionnels",
-    hint: "Visites à domicile, déplacements entre cabinets",
+    label: "Deplacements professionnels",
+    hint: "Visites a domicile, deplacements entre cabinets",
   },
   {
     key: "charges_rc_pro" as const,
-    label: "Assurance RC Pro médicale",
-    hint: "Responsabilité civile professionnelle, montant annuel",
+    label: "Assurance RC Pro medicale",
+    hint: "Responsabilite civile professionnelle, montant annuel",
   },
   {
     key: "charges_cotisations_pro" as const,
     label: "Cotisations ordinales et syndicales",
-    hint: "Ordre des médecins, syndicats médicaux",
+    hint: "Ordre des medecins, syndicats medicaux",
   },
   {
     key: "charges_telecom" as const,
-    label: "Télécom et logiciels",
-    hint: "Logiciel de gestion médicale, téléphone, connexion",
+    label: "Telecom et logiciels",
+    hint: "Logiciel de gestion medicale, telephone, connexion",
   },
   {
     key: "charges_personnel" as const,
-    label: "Personnel salarié",
-    hint: "Secrétaire médicale, aide-soignant, collaborateur salarié",
+    label: "Personnel salarie",
+    hint: "Secretaire medicale, aide-soignant, collaborateur salarie",
   },
   {
     key: "charges_autres" as const,
-    label: "Formation médicale continue",
-    hint: "DPC, congrès, abonnements revues médicales",
+    label: "Formation medicale continue",
+    hint: "DPC, congres, abonnements revues medicales",
   },
   {
     key: "charges_repas" as const,
     label: "Repas professionnels",
-    hint: "Repas en déplacement ou liés à votre activité médicale",
+    hint: "Repas en deplacement ou lies a votre activite medicale",
   },
 ] as const;
 
 const AMORTISSEMENT_CATEGORIES = [
   {
     key: "amort_informatique" as const,
-    label: "Matériel informatique",
-    hint: "Ordinateurs, écrans, imprimantes, durée d'amortissement : 3 ans",
+    label: "Materiel informatique",
+    hint: "Ordinateurs, ecrans, imprimantes, duree d'amortissement : 3 ans",
   },
   {
     key: "amort_vehicule" as const,
-    label: "Véhicule professionnel",
-    hint: "Quote-part professionnelle du véhicule, durée : 4 à 5 ans",
+    label: "Vehicule professionnel",
+    hint: "Quote-part professionnelle du vehicule, duree : 4 a 5 ans",
   },
   {
     key: "amort_mobilier" as const,
-    label: "Mobilier et équipements de bureau",
-    hint: "Bureaux, fauteuils, étagères, durée : 5 à 10 ans",
+    label: "Mobilier et equipements de bureau",
+    hint: "Bureaux, fauteuils, etageres, duree : 5 a 10 ans",
   },
   {
     key: "amort_logiciels" as const,
     label: "Logiciels et licences (> 1 an)",
-    hint: "Logiciels achetés hors abonnements, durée : 1 à 3 ans",
+    hint: "Logiciels achetes hors abonnements, duree : 1 a 3 ans",
   },
 ] as const;
 
+function parseAmount(value: string): number {
+  return parseFloat(value) || 0;
+}
+
 function getTotal(values: Array<string>): number {
-  return values
-    .map((value) => parseFloat(value) || 0)
-    .reduce((sum, value) => sum + value, 0);
+  return values.map((value) => parseAmount(value)).reduce((sum, value) => sum + value, 0);
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString("fr-FR");
 }
 
 export function Step1Chiffres({ state, onChange }: Props) {
-  const isSante = ["sante_medecin", "sante_paramedicale"].includes(state.type_activite);
+  const isSante = ["sante_medecin", "sante_paramedicale", "liberal_non_reglemente"].includes(
+    state.type_activite
+  );
+  const shouldShowRetrocession = shouldShow("charges_retrocession", state);
   const chargeCategories = isSante ? HEALTH_CHARGE_CATEGORIES : GENERAL_CHARGE_CATEGORIES;
+  const caNum = parseAmount(state.ca_annuel);
+  const retrocessionNum = parseAmount(state.charges_retrocession);
   const totalCharges = getTotal([
     state.charges_locaux,
     state.charges_materiel,
@@ -159,17 +170,119 @@ export function Step1Chiffres({ state, onChange }: Props) {
     state.amort_mobilier,
     state.amort_logiciels,
   ]);
+  const caHint = (() => {
+    if (state.mode_ca === "TTC") {
+      return "Saisissez le montant toutes taxes comprises - WYMBY deduira automatiquement la TVA.";
+    }
+    if (state.tva_deja_applicable === true) {
+      return "Saisissez le montant hors taxes (HT) - sans la TVA que vous avez collectee.";
+    }
+    return "En franchise de TVA, vos recettes sont en HT (montant facture = montant encaisse).";
+  })();
+  const microThreshold = (() => {
+    if (state.type_activite === "commerce") {
+      return FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE;
+    }
+    if (state.type_activite === "location") {
+      return FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_LMNP_CLASSIQUE;
+    }
+    return FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_BNC;
+  })();
+  const tvaThresholds = (() => {
+    if (state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale") {
+      return null;
+    }
+    if (state.type_activite === "commerce") {
+      return {
+        franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_VENTE,
+        tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_BIC_VENTE,
+      };
+    }
+    if (state.type_activite === "artiste") {
+      return {
+        franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_ARTISTE_AUTEUR,
+        tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_ARTISTE_AUTEUR,
+      };
+    }
+    return {
+      franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BNC,
+      tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_BNC,
+    };
+  })();
+  const rspmStatus = (() => {
+    if (state.type_activite !== "sante_medecin" || state.statut_exercice_sante !== "remplacant") {
+      return null;
+    }
+    const tranche1 = FISCAL_PARAMS_2026.sante.CFG_TAUX_SOCIAL_RSPM.tranche_1.a ?? 0;
+    const tranche2 = FISCAL_PARAMS_2026.sante.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0;
+    if (caNum <= 0) return null;
+    if (caNum <= tranche1) {
+      return {
+        tone: "positive",
+        message: `CA dans la 1re tranche RSPM (${formatCurrency(tranche1)} EUR max) : regime simplifie encore envisageable.`,
+      };
+    }
+    if (caNum <= tranche2) {
+      return {
+        tone: "info",
+        message: `CA dans la 2e tranche RSPM (jusqu'a ${formatCurrency(tranche2)} EUR) : maintien possible en RSPM avec taux intermediaire.`,
+      };
+    }
+    return {
+      tone: "warning",
+      message: `CA au-dessus de ${formatCurrency(tranche2)} EUR : bascule vers le regime PAMC a anticiper pour un medecin remplacant.`,
+    };
+  })();
+  const retrocessionValidation = (() => {
+    if (!shouldShowRetrocession || retrocessionNum <= 0) return null;
+    if (state.mode_retrocession === "percent") {
+      if (retrocessionNum > 100) {
+        return {
+          tone: "warning",
+          message: "La retrocession ne peut pas depasser 100 % du chiffre d'affaires.",
+        };
+      }
+      return {
+        tone: "info",
+        message: `Retrocession estimee a environ ${formatCurrency((caNum * retrocessionNum) / 100)} EUR par an.`,
+      };
+    }
+    if (caNum > 0 && retrocessionNum > caNum) {
+      return {
+        tone: "warning",
+        message: "La retrocession saisie depasse le chiffre d'affaires annuel prevu.",
+      };
+    }
+    if (caNum > 0) {
+      return {
+        tone: "info",
+        message: `La retrocession represente environ ${((retrocessionNum / caNum) * 100).toFixed(1)} % du chiffre d'affaires.`,
+      };
+    }
+    return null;
+  })();
+  const chargesValidation = (() => {
+    const chargesSaisies = totalCharges > 0 ? totalCharges : parseAmount(state.charges_annuelles);
+    if (!state.a_des_charges || chargesSaisies <= 0 || caNum <= 0) return null;
+    if (chargesSaisies > caNum) {
+      return {
+        tone: "warning",
+        message: "Vos depenses depassent le chiffre d'affaires saisi. Verifiez qu'il ne s'agit pas d'un montant mensuel.",
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="step">
       <div className="step-header">
         <h2>Vos revenus professionnels</h2>
-        <p>Les montants annuels estimés pour l'exercice 2026.</p>
+        <p>Les montants annuels estimes pour l'exercice 2026.</p>
       </div>
 
       <div className="step-fields">
         <div className="field">
-          <label>Chiffre d'affaires annuel prévu</label>
+          <label>Chiffre d'affaires annuel prevu</label>
           <div className="ca-row">
             <div className="input-suffix-wrap" style={{ flex: 1 }}>
               <input
@@ -177,10 +290,10 @@ export function Step1Chiffres({ state, onChange }: Props) {
                 min="0"
                 placeholder="ex. 60 000"
                 value={state.ca_annuel}
-                onChange={(e) => onChange({ ca_annuel: e.target.value })}
+                onChange={(event) => onChange({ ca_annuel: event.target.value })}
                 autoFocus
               />
-              <span className="input-suffix">€</span>
+              <span className="input-suffix">EUR</span>
             </div>
             <div className="toggle-group" style={{ flexShrink: 0 }}>
               <button
@@ -199,29 +312,143 @@ export function Step1Chiffres({ state, onChange }: Props) {
               </button>
             </div>
           </div>
+          <p className="field-hint">{caHint}</p>
           <span className="hint">
-            Si vous n'êtes pas encore assujetti à la TVA, saisissez le montant encaissé.
+            Si vous n'etes pas encore assujetti a la TVA, saisissez le montant encaisse.
           </span>
+
+          {caNum > 0 && (
+            <>
+              <div
+                className={`field-validation ${
+                  caNum <= microThreshold
+                    ? "field-validation-positive"
+                    : "field-validation-warning"
+                }`}
+              >
+                {caNum <= microThreshold ? (
+                  <>
+                    CA compatible avec le regime micro a ce stade. Seuil 2026 retenu :{" "}
+                    <strong>{formatCurrency(microThreshold)} EUR</strong>.
+                  </>
+                ) : (
+                  <>
+                    CA au-dessus du seuil micro 2026 de{" "}
+                    <strong>{formatCurrency(microThreshold)} EUR</strong> : le regime micro n'est
+                    en principe plus envisageable.
+                  </>
+                )}
+              </div>
+
+              {tvaThresholds === null ? (
+                <div className="field-validation field-validation-positive">
+                  Cette activite est traitee comme <strong>exoneree de TVA</strong>.
+                </div>
+              ) : (
+                <div
+                  className={`field-validation ${
+                    caNum < tvaThresholds.franchise
+                      ? "field-validation-positive"
+                      : caNum <= tvaThresholds.tolerance
+                        ? "field-validation-info"
+                        : "field-validation-warning"
+                  }`}
+                >
+                  {caNum < tvaThresholds.franchise ? (
+                    <>
+                      Sous le seuil de franchise TVA de{" "}
+                      <strong>{formatCurrency(tvaThresholds.franchise)} EUR</strong> : la franchise
+                      reste en principe envisageable.
+                    </>
+                  ) : caNum <= tvaThresholds.tolerance ? (
+                    <>
+                      CA au-dessus du seuil de franchise TVA de{" "}
+                      <strong>{formatCurrency(tvaThresholds.franchise)} EUR</strong>. Une sortie de
+                      franchise est a anticiper si ce niveau se confirme.
+                    </>
+                  ) : (
+                    <>
+                      CA au-dessus du seuil majore TVA de{" "}
+                      <strong>{formatCurrency(tvaThresholds.tolerance)} EUR</strong> : une sortie
+                      immediate de la franchise peut s'appliquer.
+                    </>
+                  )}
+                </div>
+              )}
+
+              {rspmStatus && (
+                <div className={`field-validation field-validation-${rspmStatus.tone}`}>
+                  {rspmStatus.message}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="field">
           <label>Quelle est votre certitude sur ce montant ?</label>
           <div className="toggle-group">
-            {CERTITUDES.map((c) => (
+            {CERTITUDES.map((certainty) => (
               <button
-                key={c.value}
+                key={certainty.value}
                 type="button"
-                className={`toggle-btn ${state.certitude_ca === c.value ? "active" : ""}`}
-                onClick={() => onChange({ certitude_ca: c.value })}
+                className={`toggle-btn ${state.certitude_ca === certainty.value ? "active" : ""}`}
+                onClick={() => onChange({ certitude_ca: certainty.value })}
               >
-                {c.label}
+                {certainty.label}
               </button>
             ))}
           </div>
         </div>
 
+        {shouldShowRetrocession && (
+          <div className="field">
+            <label>Retrocession annuelle</label>
+            <div className="ca-row">
+              <div className="input-suffix-wrap" style={{ flex: 1 }}>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder={state.mode_retrocession === "percent" ? "ex. 25" : "ex. 30 000"}
+                  value={state.charges_retrocession}
+                  onChange={(event) => onChange({ charges_retrocession: event.target.value })}
+                />
+                <span className="input-suffix">
+                  {state.mode_retrocession === "percent" ? "%" : "EUR / an"}
+                </span>
+              </div>
+              <div className="toggle-group" style={{ flexShrink: 0 }}>
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.mode_retrocession === "euros" ? "active" : ""}`}
+                  onClick={() => onChange({ mode_retrocession: "euros" })}
+                >
+                  EUR
+                </button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.mode_retrocession === "percent" ? "active" : ""}`}
+                  onClick={() => onChange({ mode_retrocession: "percent" })}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+            <span className="hint">
+              {state.mode_retrocession === "percent"
+                ? "Part du chiffre d'affaires reversee en retrocession."
+                : "Montant annuel verse en retrocession."}
+            </span>
+            {retrocessionValidation && (
+              <div className={`field-validation field-validation-${retrocessionValidation.tone}`}>
+                {retrocessionValidation.message}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="field">
-          <label>Avez-vous des dépenses professionnelles à déduire ?</label>
+          <label>Avez-vous des depenses professionnelles a deduire ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -256,51 +483,60 @@ export function Step1Chiffres({ state, onChange }: Props) {
 
         {shouldShow("charges_detail", state) && (
           <div className="charges-detail">
-            <p className="charges-detail-intro">Répartissez vos dépenses par catégorie :</p>
-            {chargeCategories.map((cat) => (
-              <div className="field field-sub" key={cat.key}>
-                <label>{cat.label}</label>
+            <p className="charges-detail-intro">Repartissez vos depenses par categorie :</p>
+            {chargeCategories.map((category) => (
+              <div className="field field-sub" key={category.key}>
+                <label>{category.label}</label>
                 <div className="input-suffix-wrap">
                   <input
                     type="number"
                     min="0"
                     placeholder="0"
-                    value={state[cat.key]}
-                    onChange={(e) =>
-                      onChange({ [cat.key]: e.target.value } as Partial<WizardState>)
+                    value={state[category.key]}
+                    onChange={(event) =>
+                      onChange({ [category.key]: event.target.value } as Partial<WizardState>)
                     }
                   />
-                  <span className="input-suffix">€ / an</span>
+                  <span className="input-suffix">EUR / an</span>
                 </div>
-                <span className="hint">{cat.hint}</span>
+                <span className="hint">{category.hint}</span>
               </div>
             ))}
 
             <div className="charges-total">
-              Total annuel estimé :{" "}
-              <strong>{totalCharges.toLocaleString("fr-FR")} €</strong>
+              Total annuel estime : <strong>{formatCurrency(totalCharges)} EUR</strong>
             </div>
+            {chargesValidation && (
+              <div className={`field-validation field-validation-${chargesValidation.tone}`}>
+                {chargesValidation.message}
+              </div>
+            )}
           </div>
         )}
 
         {!shouldShow("charges_detail", state) && state.a_des_charges && (
           <div className="field field-indent">
-            <label>Total des dépenses professionnelles</label>
+            <label>Total des depenses professionnelles</label>
             <div className="input-suffix-wrap">
               <input
                 type="number"
                 min="0"
                 placeholder="ex. 8 000"
                 value={state.charges_annuelles}
-                onChange={(e) => onChange({ charges_annuelles: e.target.value })}
+                onChange={(event) => onChange({ charges_annuelles: event.target.value })}
               />
-              <span className="input-suffix">€ / an</span>
+              <span className="input-suffix">EUR / an</span>
             </div>
+            {chargesValidation && (
+              <div className={`field-validation field-validation-${chargesValidation.tone}`}>
+                {chargesValidation.message}
+              </div>
+            )}
           </div>
         )}
 
         <div className="field">
-          <label>Avez-vous du matériel professionnel à amortir ?</label>
+          <label>Avez-vous du materiel professionnel a amortir ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -327,31 +563,31 @@ export function Step1Chiffres({ state, onChange }: Props) {
             </button>
           </div>
           <span className="hint">
-            Pertinent surtout pour les régimes réels ou les investissements matériels importants.
+            Pertinent surtout pour les regimes reels ou les investissements materiels importants.
           </span>
         </div>
 
         {shouldShow("amortissements", state) && (
           <div className="charges-detail">
             <p className="charges-detail-intro">
-              Répartissez vos dotations aux amortissements par catégorie :
+              Repartissez vos dotations aux amortissements par categorie :
             </p>
-            {AMORTISSEMENT_CATEGORIES.map((cat) => (
-              <div className="field field-sub" key={cat.key}>
-                <label>{cat.label}</label>
+            {AMORTISSEMENT_CATEGORIES.map((category) => (
+              <div className="field field-sub" key={category.key}>
+                <label>{category.label}</label>
                 <div className="input-suffix-wrap">
                   <input
                     type="number"
                     min="0"
                     placeholder="0"
-                    value={state[cat.key]}
-                    onChange={(e) =>
-                      onChange({ [cat.key]: e.target.value } as Partial<WizardState>)
+                    value={state[category.key]}
+                    onChange={(event) =>
+                      onChange({ [category.key]: event.target.value } as Partial<WizardState>)
                     }
                   />
-                  <span className="input-suffix">€ / an</span>
+                  <span className="input-suffix">EUR / an</span>
                 </div>
-                <span className="hint">{cat.hint}</span>
+                <span className="hint">{category.hint}</span>
               </div>
             ))}
 
@@ -364,21 +600,18 @@ export function Step1Chiffres({ state, onChange }: Props) {
                     min="0"
                     placeholder="0"
                     value={state.amortissements_annuels}
-                    onChange={(e) => onChange({ amortissements_annuels: e.target.value })}
+                    onChange={(event) => onChange({ amortissements_annuels: event.target.value })}
                   />
-                  <span className="input-suffix">€ / an</span>
+                  <span className="input-suffix">EUR / an</span>
                 </div>
                 <span className="hint">
-                  À utiliser uniquement si vous préférez saisir un total plutôt qu'un détail.
+                  A utiliser uniquement si vous preferez saisir un total plutot qu'un detail.
                 </span>
               </div>
             )}
 
             <div className="charges-total">
-              Total amortissements annuels :{" "}
-              <strong>
-                {totalAmortissements.toLocaleString("fr-FR")} €
-              </strong>
+              Total amortissements annuels : <strong>{formatCurrency(totalAmortissements)} EUR</strong>
             </div>
           </div>
         )}

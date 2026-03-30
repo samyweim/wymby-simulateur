@@ -1,33 +1,37 @@
 import { Fragment, useState } from "react";
 import type { Comparaison, DetailCalculScenario } from "@wymby/types";
 import { DeltaBadge } from "../components/DeltaBadge.js";
+import { AlertBanner } from "../components/AlertBanner.js";
 import { getScenarioLabel } from "../data/scenario-labels.js";
+import { resolveDisplayMessage } from "../data/avertissement-messages.js";
 import "./ComparaisonTable.css";
 
 interface Props {
   calculs: DetailCalculScenario[];
   comparaison: Comparaison;
   recommandeId?: string | null;
+  optimalId?: string | null;
+  limit?: number;
 }
-
-const COMPLEXITE_LABELS = ["", "Très simple", "Simple", "Moyen", "Complexe", "Très complexe"];
 
 function fmt(n: number | undefined): string {
   if (n === undefined || n === null) return "—";
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n));
 }
 
-export function ComparaisonTable({ calculs, comparaison, recommandeId }: Props) {
+function getFiabiliteLabel(niveau: DetailCalculScenario["niveau_fiabilite"]) {
+  if (niveau === "complet") return "✓ Complet";
+  if (niveau === "partiel") return "~ Partiel";
+  return "≈ Estimation";
+}
+
+export function ComparaisonTable({ calculs, comparaison, recommandeId, optimalId, limit }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const sorted = comparaison.classement_net_apres_ir
-    .map((id) => calculs.find((c) => c.scenario_id === id))
-    .filter(Boolean) as DetailCalculScenario[];
-
-  const maxNetApresIR = Math.max(
-    ...sorted.map((scenario) => scenario.intermediaires.NET_APRES_IR ?? 0),
-    0
-  );
+    .map((id) => calculs.find((scenario) => scenario.scenario_id === id))
+    .filter(Boolean)
+    .slice(0, limit) as DetailCalculScenario[];
 
   return (
     <div className="comp-wrap">
@@ -36,30 +40,23 @@ export function ComparaisonTable({ calculs, comparaison, recommandeId }: Props) 
           <thead>
             <tr>
               <th className="col-scenario">Régime</th>
-              <th className="col-bar">Revenu net</th>
-              <th className="col-options">Options</th>
-              <th className="col-num">Net / an</th>
-              <th className="col-num">Cotisations</th>
-              <th className="col-num">IR</th>
-              <th className="col-num">Coût total</th>
-              <th className="col-num">vs référence</th>
-              <th className="col-complexite">Complexité</th>
-              <th className="col-why">Détail</th>
+              <th className="col-num">Net/an</th>
+              <th className="col-num col-ecart">Écart vs référence</th>
+              <th className="col-fiabilite">Fiabilité</th>
+              <th className="col-why">▼</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((scenario, index) => {
               const inter = scenario.intermediaires;
-              const ecart = comparaison.ecarts.find((e) => e.scenario_id === scenario.scenario_id);
+              const delta = comparaison.ecarts.find(
+                (entry) => entry.scenario_id === scenario.scenario_id
+              )?.DELTA_NET_APRES_IR;
               const isExpanded = expandedId === scenario.scenario_id;
               const isRec = scenario.scenario_id === recommandeId;
               const isRef = scenario.scenario_id === comparaison.scenario_reference_id;
-              const complexiteLabel =
-                COMPLEXITE_LABELS[scenario.scores.SCORE_COMPLEXITE_ADMIN] ?? "—";
-              const barWidth =
-                maxNetApresIR > 0
-                  ? (((inter.NET_APRES_IR ?? 0) / maxNetApresIR) * 100).toFixed(1)
-                  : "0";
+              const isOptimal = scenario.scenario_id === optimalId;
+              const label = getScenarioLabel(scenario.base_id);
 
               return (
                 <Fragment key={scenario.scenario_id}>
@@ -67,87 +64,99 @@ export function ComparaisonTable({ calculs, comparaison, recommandeId }: Props) 
                     className={`comp-row ${isExpanded ? "comp-row-open" : ""} ${
                       isRec ? "row-recommande" : ""
                     } ${isRef ? "row-reference" : ""}`}
-                    onClick={() => setExpandedId(isExpanded ? null : scenario.scenario_id)}
+                    onClick={() =>
+                      setExpandedId(isExpanded ? null : scenario.scenario_id)
+                    }
                     aria-expanded={isExpanded}
                   >
                     <td className="col-scenario">
                       <div className="row-name-wrap">
                         {isRec && <span className="row-tag tag-rec">Recommandé</span>}
-                        {isRef && !isRec && <span className="row-tag tag-ref">Référence</span>}
+                        {isRef && <span className="row-tag tag-ref">Référence</span>}
+                        {isOptimal && <span className="row-tag tag-opt">Optimal</span>}
                         <span className="row-rank">#{index + 1}</span>
-                        <span className="row-name">{getScenarioLabel(scenario.base_id).titre}</span>
+                        <span className="row-name">{label.titre}</span>
                       </div>
                     </td>
-                    <td className="col-bar">
-                      <div className="comp-bar-track">
-                        <div
-                          className={`comp-bar-fill ${isRec ? "bar-rec" : ""} ${
-                            isRef ? "bar-ref" : ""
-                          }`}
-                          style={{ width: `${barWidth}%` }}
-                        />
-                      </div>
+                    <td className="col-num col-net text-numeric">
+                      {fmt(inter.NET_APRES_IR)} €/an
                     </td>
-                    <td className="col-options">
-                      <div className="row-options">
-                        <span
-                          className={`opt-tag ${
-                            scenario.option_tva === "TVA_FRANCHISE" ? "opt-muted" : "opt-active"
-                          }`}
-                        >
-                          {scenario.option_tva === "TVA_FRANCHISE" ? "Franchise" : "TVA"}
-                        </span>
-                        {scenario.option_vfl === "VFL_OUI" && (
-                          <span className="opt-tag opt-active">VFL</span>
-                        )}
-                        {scenario.boosters_actifs.map((booster) => (
-                          <span key={booster} className="opt-tag opt-booster">
-                            {booster.replace("BOOST_", "")}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="col-num col-net text-numeric">{fmt(inter.NET_APRES_IR)} €</td>
-                    <td className="col-num text-numeric">{fmt(inter.COTISATIONS_SOCIALES_NETTES)} €</td>
-                    <td className="col-num text-numeric">{fmt(inter.IR_ATTRIBUABLE_SCENARIO)} €</td>
-                    <td className="col-num text-numeric">{fmt(inter.COUT_TOTAL_SOCIAL_FISCAL)} €</td>
-                    <td className="col-num">
-                      {ecart && !isRef ? (
-                        <DeltaBadge value={ecart.DELTA_NET_APRES_IR} showZero />
+                    <td className="col-num col-ecart">
+                      {isRef ? (
+                        <span className="col-muted">— référence</span>
+                      ) : delta !== undefined ? (
+                        <DeltaBadge value={delta} showZero />
                       ) : (
                         <span className="col-muted">—</span>
                       )}
                     </td>
-                    <td className="col-complexite">
-                      <span
-                        className={`badge-complexite complexite-${scenario.scores.SCORE_COMPLEXITE_ADMIN}`}
-                      >
-                        {complexiteLabel}
+                    <td className="col-fiabilite">
+                      <span className={`sc-fiabilite sc-fiabilite-${scenario.niveau_fiabilite}`}>
+                        {getFiabiliteLabel(scenario.niveau_fiabilite)}
                       </span>
                     </td>
                     <td className="col-why">
-                      <span className="expand-icon" aria-hidden>
+                      <button
+                        type="button"
+                        className="expand-icon"
+                        aria-expanded={isExpanded}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExpandedId(isExpanded ? null : scenario.scenario_id);
+                        }}
+                      >
                         {isExpanded ? "▲" : "▼"}
-                      </span>
+                      </button>
                     </td>
                   </tr>
 
                   {isExpanded && (
                     <tr className="comp-row-detail">
-                      <td colSpan={10}>
+                      <td colSpan={5}>
                         <div className="comp-detail-body">
+                          <div className="comp-detail-grid">
+                            <div className="comp-detail-number">
+                              <span className="comp-detail-label">Cotisations nettes</span>
+                              <strong>{fmt(inter.COTISATIONS_SOCIALES_NETTES)} €</strong>
+                            </div>
+                            <div className="comp-detail-number">
+                              <span className="comp-detail-label">IR attribuable</span>
+                              <strong>{fmt(inter.IR_ATTRIBUABLE_SCENARIO)} €</strong>
+                            </div>
+                            <div className="comp-detail-number">
+                              <span className="comp-detail-label">Coût total</span>
+                              <strong>{fmt(inter.COUT_TOTAL_SOCIAL_FISCAL)} €</strong>
+                            </div>
+                            <div className="comp-detail-number">
+                              <span className="comp-detail-label">Base imposable</span>
+                              <strong>{fmt(inter.RESULTAT_FISCAL_APRES_EXONERATIONS)} €</strong>
+                            </div>
+                          </div>
+
                           <p className="comp-detail-explication">
                             {scenario.explication ??
-                              `${getScenarioLabel(scenario.base_id).description || getScenarioLabel(scenario.base_id).titre} — aucune note disponible.`}
+                              label.description ??
+                              label.titre}
                           </p>
+
                           {scenario.avertissements_scenario.length > 0 && (
-                            <ul className="comp-detail-warnings">
-                              {scenario.avertissements_scenario.map((warning, warningIndex) => (
-                                <li key={warningIndex}>⚠ {warning}</li>
+                            <div className="comp-detail-warnings">
+                              {scenario.avertissements_scenario
+                                .map(resolveDisplayMessage)
+                                .filter((warning): warning is NonNullable<typeof warning> => warning !== null)
+                                .map((warning, warningIndex) => (
+                                <AlertBanner
+                                  key={`${warning.message}-${warningIndex}`}
+                                  level={warning.level}
+                                  primaryMessage={warning.message}
+                                />
                               ))}
-                            </ul>
+                            </div>
                           )}
-                          <p className="comp-detail-fiabilite">
+
+                          <p
+                            className={`comp-detail-fiabilite sc-fiabilite sc-fiabilite-${scenario.niveau_fiabilite}`}
+                          >
                             Fiabilité : <strong>{scenario.niveau_fiabilite}</strong>
                           </p>
                         </div>

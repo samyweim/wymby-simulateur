@@ -474,7 +474,13 @@ export type { LogLevel } from "./logger.js";
 
 function _getTvaWarningSuffix(input: UserInput): string {
   if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
-  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
+  if (
+    input.SOUS_SEGMENT_ACTIVITE === "liberal" ||
+    input.SOUS_SEGMENT_ACTIVITE === "medecin" ||
+    input.SOUS_SEGMENT_ACTIVITE === "paramedical"
+  ) {
+    return "BNC";
+  }
   return "BIC_SERVICE";
 }
 

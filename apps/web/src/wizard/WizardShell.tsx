@@ -21,13 +21,15 @@ const STORAGE_KEY = "wymby_wizard_state";
 
 function canAdvance(step: number, state: WizardState): boolean {
   if (step === 0) {
-    const santeOk =
-      !["sante_medecin", "sante_paramedicale"].includes(state.type_activite) ||
-      state.secteur_conventionnel !== "";
+    const isMedecin = state.type_activite === "sante_medecin";
+    const isSanteReglementee =
+      state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
+    const santeOk = !isMedecin || state.secteur_conventionnel !== "";
+    const statutOk = !isSanteReglementee || state.statut_exercice_sante !== "";
     const activiteOk =
       state.est_deja_en_activite !== true ||
       (state.mois_debut_activite !== "" && state.annee_debut_activite !== "");
-    return state.type_activite !== "" && santeOk && activiteOk;
+    return state.type_activite !== "" && santeOk && statutOk && activiteOk;
   }
   if (step === 1) return state.ca_annuel !== "" && parseFloat(state.ca_annuel) >= 0;
   if (step === 2) return state.situation_familiale !== "";
@@ -47,6 +49,32 @@ export function WizardShell({ onComplete }: Props) {
   const [savedState, setSavedState] = useState<WizardState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "number") return;
+      if (document.activeElement !== target) return;
+
+      event.preventDefault();
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== "number") return;
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+      event.preventDefault();
+    };
+
+    document.addEventListener("wheel", handleWheel, { passive: false, capture: true });
+    document.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener("wheel", handleWheel, true);
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, []);
 
   useEffect(() => {
     try {

@@ -5,7 +5,11 @@ type VisibleField =
   | "amortissements"
   | "rfr_n2"
   | "droits_are"
+  | "activite_sante"
+  | "numero_adeli"
   | "secteur_sante"
+  | "statut_exercice_sante"
+  | "charges_retrocession"
   | "envisage_associes"
   | "tva_question";
 
@@ -31,10 +35,29 @@ export function shouldShow(field: VisibleField, state: WizardState): boolean {
     case "droits_are":
       return state.percoit_chomage === true;
 
+    case "activite_sante":
+      return state.type_activite === "liberal_non_reglemente";
+
+    case "numero_adeli":
+      return (
+        state.type_activite === "liberal_non_reglemente" &&
+        state.est_profession_sante === true
+      );
+
     case "secteur_sante":
+      return state.type_activite === "sante_medecin";
+
+    case "statut_exercice_sante":
       return (
         state.type_activite === "sante_medecin" ||
         state.type_activite === "sante_paramedicale"
+      );
+
+    case "charges_retrocession":
+      return (
+        state.type_activite === "sante_medecin" ||
+        state.type_activite === "sante_paramedicale" ||
+        state.type_activite === "liberal_non_reglemente"
       );
 
     case "envisage_associes":

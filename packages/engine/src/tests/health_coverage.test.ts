@@ -104,4 +104,92 @@ describe("Couverture santé complémentaire", () => {
       "SIMULATION_SOCIETE_SANTE_BASEE_SUR_MODELE_SOCIETE_GENERALISTE"
     );
   });
+
+  it("RSPM (S01) est eligible pour un remplacant secteur 1", () => {
+    const output = runEngine(
+      {
+        ANNEE_SIMULATION: "2026",
+        SEGMENT_ACTIVITE: "santé",
+        SOUS_SEGMENT_ACTIVITE: "medecin",
+        CA_ENCAISSE_UTILISATEUR: 30_000,
+        INPUT_MODE_CA: "HT",
+        CHARGES_DEDUCTIBLES: 5_000,
+        EST_PROFESSION_SANTE: true,
+        EST_REMPLACANT: true,
+        EST_CONVENTIONNE: true,
+        EST_ELIGIBLE_AIDE_CPAM: true,
+        SECTEUR_CONVENTIONNEL: "secteur_1",
+        SITUATION_FAMILIALE: "célibataire",
+        NOMBRE_PARTS_FISCALES: 1,
+        AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+        DATE_CREATION_ACTIVITE: "2025-01-01",
+      },
+      FISCAL_PARAMS_2026
+    );
+
+    const rspm = output.calculs_par_scenario.find((c) => c.base_id === "S_RSPM");
+    expect(rspm).toBeTruthy();
+    const eligibleIds = output.scenarios_possibles.map((s) => s.base_id);
+    expect(eligibleIds).toContain("S_RSPM");
+  });
+
+  it("RSPM (S01) est exclu pour un titulaire installe secteur 1", () => {
+    const output = runEngine(
+      {
+        ANNEE_SIMULATION: "2026",
+        SEGMENT_ACTIVITE: "santé",
+        SOUS_SEGMENT_ACTIVITE: "medecin",
+        CA_ENCAISSE_UTILISATEUR: 40_000,
+        INPUT_MODE_CA: "HT",
+        CHARGES_DEDUCTIBLES: 5_000,
+        EST_PROFESSION_SANTE: true,
+        EST_REMPLACANT: false,
+        EST_CONVENTIONNE: true,
+        EST_ELIGIBLE_AIDE_CPAM: true,
+        SECTEUR_CONVENTIONNEL: "secteur_1",
+        SITUATION_FAMILIALE: "célibataire",
+        NOMBRE_PARTS_FISCALES: 1,
+        AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+        DATE_CREATION_ACTIVITE: "2020-01-01",
+      },
+      FISCAL_PARAMS_2026
+    );
+
+    const rspm = output.calculs_par_scenario.find((c) => c.base_id === "S_RSPM");
+    expect(rspm).toBeUndefined();
+    const eligibleIds = output.scenarios_possibles.map((s) => s.base_id);
+    expect(eligibleIds).not.toContain("S_RSPM");
+  });
+
+  it("n'affiche pas de scénarios secteur 2 ou hors convention pour un médecin secteur 1", () => {
+    const output = runEngine(
+      {
+        ANNEE_SIMULATION: "2026",
+        SEGMENT_ACTIVITE: "santé",
+        SOUS_SEGMENT_ACTIVITE: "medecin",
+        CA_ENCAISSE_UTILISATEUR: 70_000,
+        INPUT_MODE_CA: "HT",
+        CHARGES_DEDUCTIBLES: 15_000,
+        DOTATIONS_AMORTISSEMENTS: 2_000,
+        EST_PROFESSION_SANTE: true,
+        EST_CONVENTIONNE: true,
+        EST_ELIGIBLE_AIDE_CPAM: true,
+        SECTEUR_CONVENTIONNEL: "secteur_1",
+        SITUATION_FAMILIALE: "célibataire",
+        NOMBRE_PARTS_FISCALES: 1,
+        AUTRES_REVENUS_FOYER_IMPOSABLES: 25_000,
+        DATE_CREATION_ACTIVITE: "2024-01-01",
+      },
+      FISCAL_PARAMS_2026
+    );
+
+    const eligibleIds = output.scenarios_possibles.map((scenario) => scenario.base_id);
+
+    expect(eligibleIds).toContain("S_MICRO_BNC_SECTEUR_1");
+    expect(eligibleIds).toContain("S_EI_REEL_SECTEUR_1");
+    expect(eligibleIds).not.toContain("S_MICRO_BNC_SECTEUR_2");
+    expect(eligibleIds).not.toContain("S_EI_REEL_SECTEUR_2_OPTAM");
+    expect(eligibleIds).not.toContain("S_EI_REEL_SECTEUR_2_NON_OPTAM");
+    expect(eligibleIds).not.toContain("S_EI_REEL_SECTEUR_3_HORS_CONVENTION");
+  });
 });

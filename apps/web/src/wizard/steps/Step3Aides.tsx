@@ -1,7 +1,7 @@
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import type { WizardState } from "../types.js";
 import { resolveZoneFromCodePostal } from "../../data/zones_cp.js";
 import { shouldShow } from "../visibility.js";
-import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import "./Step.css";
 
 interface Props {
@@ -9,37 +9,58 @@ interface Props {
   onChange: (patch: Partial<WizardState>) => void;
 }
 
+function parseAmount(value: string): number {
+  return parseFloat(value) || 0;
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString("fr-FR");
+}
+
+function isTvaExonereeSante(state: WizardState): boolean {
+  return state.type_activite === "sante_medecin" || state.type_activite === "sante_paramedicale";
+}
+
 export function Step3Aides({ state, onChange }: Props) {
-  const caNum = parseFloat(state.ca_annuel) || 0;
-  const tvaSeuil =
-    state.type_activite === "commerce"
-      ? FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_VENTE
-      : state.type_activite === "liberal_reglemente" ||
-          state.type_activite === "liberal_non_reglemente" ||
-          state.type_activite === "sante_medecin" ||
-          state.type_activite === "sante_paramedicale" ||
-          state.type_activite === "artiste"
-        ? FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BNC
-        : FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_SERVICE;
-  const tvaProbable = caNum > 0 ? caNum >= tvaSeuil : null;
+  const caNum = parseAmount(state.ca_annuel);
+  const droitsAre = parseAmount(state.droits_are_restants);
+  const tvaSeuils =
+    isTvaExonereeSante(state)
+      ? null
+      : state.type_activite === "commerce"
+        ? {
+            franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_VENTE,
+            tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_BIC_VENTE,
+          }
+        : state.type_activite === "artiste"
+          ? {
+              franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_ARTISTE_AUTEUR,
+              tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_ARTISTE_AUTEUR,
+            }
+          : {
+              franchise: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BNC,
+              tolerance: FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_TOLERANCE_BNC,
+            };
+  const zone = state.code_postal.length === 5 ? resolveZoneFromCodePostal(state.code_postal) : "aucune";
+  const arceEstimate = droitsAre * FISCAL_PARAMS_2026.aides.CFG_TAUX_ARCE;
 
   return (
     <div className="step">
       <div className="step-header">
-        <h2>Aides et situations particulières</h2>
-        <p>Ces dispositifs peuvent réduire significativement vos charges la première année.</p>
+        <h2>Aides et situations particulieres</h2>
+        <p>Ces dispositifs peuvent reduire significativement vos charges la premiere annee.</p>
       </div>
 
       <div className="step-fields">
         {state.est_deja_en_activite === false && (
           <div className="field-notice">
-            Votre profil indique une création ou reprise d'activité. Les aides au démarrage
+            Votre profil indique une creation ou reprise d'activite. Les aides au demarrage
             (ACRE, ARCE) sont prises en compte automatiquement si applicable.
           </div>
         )}
 
         <div className="field">
-          <label>Percevez-vous des allocations chômage (ARE) ?</label>
+          <label>Percevez-vous des allocations chomage (ARE) ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -69,16 +90,22 @@ export function Step3Aides({ state, onChange }: Props) {
                 value={state.droits_are_restants}
                 onChange={(e) => onChange({ droits_are_restants: e.target.value })}
               />
-              <span className="input-suffix">€</span>
+              <span className="input-suffix">EUR</span>
             </div>
             <span className="hint">
-              Utilisé pour estimer l'ARCE comme flux de trésorerie distinct.
+              Utilise pour estimer l'ARCE comme flux de tresorerie distinct.
             </span>
+            {droitsAre > 0 && (
+              <div className="field-validation field-validation-info">
+                ARCE potentielle estimee : <strong>{formatCurrency(arceEstimate)} EUR</strong>,
+                soit {Math.round(FISCAL_PARAMS_2026.aides.CFG_TAUX_ARCE * 100)} % des droits restants.
+              </div>
+            )}
           </div>
         )}
 
         <div className="field">
-          <label>Code postal de votre lieu d'activité principal</label>
+          <label>Code postal de votre lieu d'activite principal</label>
           <input
             type="text"
             inputMode="numeric"
@@ -90,23 +117,19 @@ export function Step3Aides({ state, onChange }: Props) {
               onChange({ code_postal: e.target.value.replace(/\D/g, "").slice(0, 5) })
             }
           />
-          {state.code_postal.length === 5 && (() => {
-            const zone = resolveZoneFromCodePostal(state.code_postal);
-            if (zone === "aucune") return null;
-            return (
-              <div className="field-zone-detected">
-                Zone détectée : <strong>{zone}</strong> — exonération applicable à votre dossier.
-              </div>
-            );
-          })()}
+          {state.code_postal.length === 5 && zone !== "aucune" && (
+            <div className="field-zone-detected">
+              Zone detectee : <strong>{zone}</strong> - exoneration applicable a votre dossier.
+            </div>
+          )}
           <span className="hint">
-            Utilisé pour détecter automatiquement une zone d'exonération fiscale (ZFRR, QPV…).
+            Utilise pour detecter automatiquement une zone d'exoneration fiscale (ZFRR, QPV...).
           </span>
         </div>
 
         {shouldShow("envisage_associes", state) && (
           <div className="field">
-            <label>Envisagez-vous d'avoir des associés ou des salariés ?</label>
+            <label>Envisagez-vous d'avoir des associes ou des salaries ?</label>
             <div className="toggle-group">
               <button
                 type="button"
@@ -124,14 +147,14 @@ export function Step3Aides({ state, onChange }: Props) {
               </button>
             </div>
             <span className="hint">
-              Cette information permet d'inclure les structures en société dans la comparaison.
+              Cette information permet d'inclure les structures en societe dans la comparaison.
             </span>
           </div>
         )}
 
         {state.envisage_associes === true && (
           <div className="field field-indent">
-            <label>Capital social envisagé</label>
+            <label>Capital social envisage</label>
             <div className="input-suffix-wrap">
               <input
                 type="number"
@@ -140,21 +163,20 @@ export function Step3Aides({ state, onChange }: Props) {
                 value={state.capital_social}
                 onChange={(e) => onChange({ capital_social: e.target.value })}
               />
-              <span className="input-suffix">€</span>
+              <span className="input-suffix">EUR</span>
             </div>
             <span className="hint">
-              Montant du capital que vous apportez à la société (peut être symbolique : 1 €).
+              Montant du capital que vous apportez a la societe (peut etre symbolique : 1 EUR).
             </span>
           </div>
         )}
 
         {shouldShow("tva_question", state) && (
           <div className="field">
-            <label>Facturez-vous la TVA à vos clients ?</label>
+            <label>Facturez-vous la TVA a vos clients ?</label>
             <span className="hint">
-              Si votre chiffre d'affaires annuel est inférieur à un certain seuil (franchise en
-              base), vous n'êtes pas obligé de facturer la TVA. C'est le cas de la plupart des
-              indépendants qui débutent.
+              Si votre chiffre d'affaires annuel est inferieur a un certain seuil (franchise en
+              base), vous n'etes pas oblige de facturer la TVA.
             </span>
             <div className="toggle-group toggle-group-stack-mobile">
               <button
@@ -180,11 +202,56 @@ export function Step3Aides({ state, onChange }: Props) {
               </button>
             </div>
 
-            {state.tva_deja_applicable === null && tvaProbable !== null && (
+            {isTvaExonereeSante(state) && (
+              <div className="field-validation field-validation-positive">
+                Votre activite releve ici d'un regime <strong>exonere de TVA</strong>.
+              </div>
+            )}
+
+            {!isTvaExonereeSante(state) && tvaSeuils && caNum > 0 && (
+              <div
+                className={`field-validation ${
+                  caNum < tvaSeuils.franchise
+                    ? "field-validation-positive"
+                    : caNum <= tvaSeuils.tolerance
+                      ? "field-validation-info"
+                      : "field-validation-warning"
+                }`}
+              >
+                {caNum < tvaSeuils.franchise ? (
+                  <>
+                    Sous le seuil de franchise TVA de{" "}
+                    <strong>{formatCurrency(tvaSeuils.franchise)} EUR</strong>.
+                  </>
+                ) : caNum <= tvaSeuils.tolerance ? (
+                  <>
+                    Au-dessus du seuil de franchise TVA de{" "}
+                    <strong>{formatCurrency(tvaSeuils.franchise)} EUR</strong> : une sortie de
+                    franchise est a surveiller.
+                  </>
+                ) : (
+                  <>
+                    Au-dessus du seuil majore TVA de{" "}
+                    <strong>{formatCurrency(tvaSeuils.tolerance)} EUR</strong> : la TVA doit en
+                    principe s'appliquer immediatement.
+                  </>
+                )}
+              </div>
+            )}
+
+            {state.tva_deja_applicable === null && caNum > 0 && (
               <div className="field-info">
-                D'après votre CA déclaré, vous êtes probablement{" "}
-                <strong>{tvaProbable ? "assujetti à la TVA" : "en franchise de TVA"}</strong>.
-                Vous pouvez laisser cette option, le simulateur l'estimera automatiquement.
+                {isTvaExonereeSante(state) ? (
+                  <>
+                    Vous pouvez laisser cette option telle quelle : le simulateur traitera
+                    l'activite comme <strong>exoneree de TVA</strong>.
+                  </>
+                ) : (
+                  <>
+                    Vous pouvez laisser cette option sur "Je ne sais pas" : le simulateur
+                    l'estimera a partir de votre CA et de votre activite.
+                  </>
+                )}
               </div>
             )}
           </div>

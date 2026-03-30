@@ -25,6 +25,10 @@ export function TooltipFiscal({ term, children }: Props) {
       <button
         className="tooltip-trigger"
         onClick={() => setVisible(!visible)}
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
         type="button"
         aria-expanded={visible}
       >

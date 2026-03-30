@@ -1,4 +1,4 @@
-import type { SecteurConventionnel, WizardState } from "../types.js";
+import type { SecteurConventionnel, StatutExerciceSante, WizardState } from "../types.js";
 import { shouldShow } from "../visibility.js";
 import "./Step.css";
 
@@ -10,103 +10,171 @@ interface Props {
 const ACTIVITES = [
   {
     value: "prestation" as const,
-    title: "Prestation de service",
-    desc: "Consulting, formation, IT, coaching, traduction, rédaction…",
+    title: "BNC - conseil et prestations intellectuelles",
+    desc: "Consultant en gestion, formateur, developpeur, data scientist, coach, marketing...",
   },
   {
     value: "liberal_reglemente" as const,
-    title: "Profession libérale réglementée",
-    desc: "Avocat, architecte, expert-comptable, notaire, pharmacien…",
-  },
-  {
-    value: "liberal_non_reglemente" as const,
-    title: "Profession libérale non réglementée",
-    desc: "Psychologue, coach, diététicien, sophrologue, consultant RH…",
+    title: "BNC - profession liberale reglementee",
+    desc: "Avocat, architecte, expert-comptable, notaire, pharmacien...",
   },
   {
     value: "commerce" as const,
-    title: "Commerce / Artisanat",
-    desc: "Achat-revente, e-commerce, artisan fabricant, restauration…",
+    title: "BIC - commerce, artisanat et services commerciaux",
+    desc: "VTC, livreur, editeur SaaS, nettoyage, entretien, coiffure a domicile...",
   },
   {
     value: "sante_medecin" as const,
-    title: "Médecin",
-    desc: "Médecin généraliste ou spécialiste, en secteur 1, 2 ou 3.",
+    title: "Medecin",
+    desc: "BNC reglemente, exonere de TVA, PAMC. Secteur 1, 2 OPTAM, 2 sans OPTAM ou 3.",
   },
   {
     value: "sante_paramedicale" as const,
-    title: "Paramédical / Santé",
-    desc: "Kinésithérapeute, infirmier, orthophoniste, dentiste, sage-femme…",
+    title: "Sante reglementee",
+    desc: "Infirmier liberal, kine, psychologue, orthophoniste, osteopathe...",
+  },
+  {
+    value: "liberal_non_reglemente" as const,
+    title: "Sante / bien-etre non reglemente",
+    desc: "Sophrologue, naturopathe, hypnotherapeute, psychopraticien, yoga, pilates...",
   },
   {
     value: "artiste" as const,
     title: "Artiste-auteur",
-    desc: "Auteur, musicien, plasticien, photographe, illustrateur…",
+    desc: "Auteur, musicien, plasticien, photographe, illustrateur...",
   },
   {
     value: "location" as const,
-    title: "Location meublée",
-    desc: "LMNP ou LMP, appartement, meublé de tourisme, colocation…",
+    title: "Location meublee",
+    desc: "LMNP ou LMP, appartement, meuble de tourisme, colocation...",
+  },
+] as const;
+
+const ACTIVITE_GROUPS = [
+  {
+    label: "Generaliste",
+    values: ["prestation", "liberal_reglemente", "commerce"],
+  },
+  {
+    label: "Sante",
+    values: ["sante_medecin", "sante_paramedicale", "liberal_non_reglemente"],
+  },
+  {
+    label: "Immobilier",
+    values: ["location"],
+  },
+  {
+    label: "Artiste-auteur",
+    values: ["artiste"],
   },
 ] as const;
 
 const MONTHS = [
   { value: "01", label: "Janvier" },
-  { value: "02", label: "Février" },
+  { value: "02", label: "Fevrier" },
   { value: "03", label: "Mars" },
   { value: "04", label: "Avril" },
   { value: "05", label: "Mai" },
   { value: "06", label: "Juin" },
   { value: "07", label: "Juillet" },
-  { value: "08", label: "Août" },
+  { value: "08", label: "Aout" },
   { value: "09", label: "Septembre" },
   { value: "10", label: "Octobre" },
   { value: "11", label: "Novembre" },
-  { value: "12", label: "Décembre" },
+  { value: "12", label: "Decembre" },
 ] as const;
 
 const YEARS = Array.from({ length: 12 }, (_, index) => String(2026 - index));
 
 export function Step0Profil({ state, onChange }: Props) {
+  const needsHealthSector = shouldShow("secteur_sante", state);
+  const healthSectorCompleted = state.secteur_conventionnel !== "";
+
   return (
     <div className="step">
       <div className="step-header">
-        <h2>Votre activité</h2>
-        <p>Quelques informations pour cibler les régimes qui vous correspondent.</p>
+        <h2>Votre activite</h2>
+        <p>Quelques informations pour cibler les regimes qui vous correspondent.</p>
       </div>
 
       <div className="step-fields">
         <div className="field">
-          <label>Quel type d'activité exercez-vous ?</label>
-          <div className="radio-grid">
-            {ACTIVITES.map((a) => (
-              <label className="radio-card" key={a.value}>
-                <input
-                  type="radio"
-                  name="type_activite"
-                  value={a.value}
-                  checked={state.type_activite === a.value}
-                  onChange={() =>
-                    onChange({
-                      type_activite: a.value,
-                      secteur_conventionnel: "",
-                      envisage_associes: null,
-                    })
-                  }
-                />
-                <div className="radio-label">
-                  <span className="radio-title">{a.title}</span>
-                  <span className="radio-desc">{a.desc}</span>
+          <label>Quel type d'activite exercez-vous ?</label>
+          <div className="activite-groups">
+            {ACTIVITE_GROUPS.map((group) => (
+              <div key={group.label} className="activite-group">
+                <span className="activite-group-label">{group.label}</span>
+                <div className="activite-tiles">
+                  {group.values.map((value) => {
+                    const item = ACTIVITES.find((activity) => activity.value === value)!;
+
+                    return (
+                      <label className="radio-card" key={item.value}>
+                        <input
+                          type="radio"
+                          name="type_activite"
+                          value={item.value}
+                          checked={state.type_activite === item.value}
+                          onChange={() =>
+                            onChange({
+                              type_activite: item.value,
+                              est_profession_sante:
+                                item.value === "sante_medecin" ||
+                                item.value === "sante_paramedicale",
+                              a_numero_adeli:
+                                item.value === "sante_medecin" || item.value === "sante_paramedicale"
+                                  ? true
+                                  : false,
+                              secteur_conventionnel: "",
+                              statut_exercice_sante: "",
+                              charges_retrocession: "",
+                              mode_retrocession: "euros",
+                              envisage_associes: null,
+                            })
+                          }
+                        />
+                        <div className="radio-label">
+                          <span className="radio-title">{item.title}</span>
+                          <span className="radio-desc">
+                            {item.value === "sante_paramedicale" && <strong>Numero RPPS requis</strong>}
+                            {item.value === "sante_paramedicale" && <br />}
+                            {item.desc}
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
-              </label>
+              </div>
             ))}
           </div>
         </div>
 
-        {shouldShow("secteur_sante", state) && (
-          <div className="field">
-            <label>Votre secteur de conventionnement</label>
-            <div className="radio-grid">
+        {needsHealthSector && (
+          <section
+            className={`field field-substep ${
+              healthSectorCompleted ? "field-substep-complete" : "field-substep-required"
+            }`}
+          >
+            <div className="field-substep-head">
+              <div>
+                <label>Votre secteur de conventionnement</label>
+              </div>
+              <span
+                className={`field-substep-status ${
+                  healthSectorCompleted ? "is-complete" : "is-pending"
+                }`}
+              >
+                {healthSectorCompleted ? "Complete" : "A completer"}
+              </span>
+            </div>
+
+            <p className="field-substep-intro">
+              On en a besoin pour appliquer les bons regimes sante, les aides CPAM et les
+              cotisations correspondant a votre situation.
+            </p>
+
+            <div className="radio-grid radio-grid-emphasis">
               {[
                 {
                   value: "1",
@@ -116,32 +184,81 @@ export function Step0Profil({ state, onChange }: Props) {
                 {
                   value: "2_optam",
                   title: "Secteur 2 OPTAM",
-                  desc: "Dépassements modérés, aide CPAM partielle",
+                  desc: "Depassements moderes, aide CPAM partielle",
                 },
                 {
                   value: "2_non_optam",
                   title: "Secteur 2 (sans OPTAM)",
-                  desc: "Dépassements libres, cotisations au taux plein",
+                  desc: "Depassements libres, cotisations au taux plein",
                 },
                 {
                   value: "3",
-                  title: "Secteur 3 / Non conventionné",
-                  desc: "Hors convention Assurance Maladie, tarifs entièrement libres",
+                  title: "Secteur 3 / Non conventionne",
+                  desc: "Hors convention Assurance Maladie, tarifs entierement libres",
                 },
-              ].map((s) => (
-                <label className="radio-card" key={s.value}>
+              ].map((sector) => (
+                <label className="radio-card" key={sector.value}>
                   <input
                     type="radio"
                     name="secteur_conventionnel"
-                    value={s.value}
-                    checked={state.secteur_conventionnel === s.value}
+                    value={sector.value}
+                    checked={state.secteur_conventionnel === sector.value}
                     onChange={() =>
-                      onChange({ secteur_conventionnel: s.value as SecteurConventionnel })
+                      onChange({
+                        secteur_conventionnel: sector.value as SecteurConventionnel,
+                      })
                     }
                   />
                   <div className="radio-label">
-                    <span className="radio-title">{s.title}</span>
-                    <span className="radio-desc">{s.desc}</span>
+                    <span className="radio-title">{sector.title}</span>
+                    <span className="radio-desc">{sector.desc}</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {shouldShow("statut_exercice_sante", state) && (
+          <div className="field">
+            <label>Votre statut d'exercice</label>
+            <div className="radio-grid">
+              {[
+                {
+                  value: "titulaire_installe",
+                  title: "Titulaire installe",
+                  desc: "Vous exercez a titre principal dans votre propre cabinet",
+                },
+                {
+                  value: "remplacant",
+                  title: "Remplacant",
+                  desc: "Vous remplacez un praticien titulaire - regime RSPM possible",
+                },
+                {
+                  value: "associe_groupe",
+                  title: "Associe / groupe",
+                  desc: "Exercice en cabinet de groupe ou societe d'exercice liberal",
+                },
+              ].map((status) => (
+                <label className="radio-card" key={status.value}>
+                  <input
+                    type="radio"
+                    name="statut_exercice_sante"
+                    value={status.value}
+                    checked={state.statut_exercice_sante === status.value}
+                    onChange={() =>
+                      onChange({
+                        statut_exercice_sante: status.value as StatutExerciceSante,
+                        charges_retrocession:
+                          status.value === "remplacant" ? state.charges_retrocession : "",
+                        mode_retrocession:
+                          status.value === "remplacant" ? state.mode_retrocession : "euros",
+                      })
+                    }
+                  />
+                  <div className="radio-label">
+                    <span className="radio-title">{status.title}</span>
+                    <span className="radio-desc">{status.desc}</span>
                   </div>
                 </label>
               ))}
@@ -149,16 +266,16 @@ export function Step0Profil({ state, onChange }: Props) {
           </div>
         )}
 
-        {shouldShow("secteur_sante", state) && (
+        {needsHealthSector && (
           <div className="field-notice">
-            Les régimes spécifiques au secteur santé (cotisations CPAM, ASV, secteurs
-            conventionnels) sont en cours d’intégration. La simulation utilise encore les
-            régimes généraux en attendant les calculateurs sectoriels complets.
+            Les regimes specifiques au secteur sante (cotisations CPAM, ASV, secteurs
+            conventionnels) sont en cours d'integration. La simulation utilise encore les
+            regimes generaux en attendant les calculateurs sectoriels complets.
           </div>
         )}
 
         <div className="field">
-          <label>Exercez-vous déjà cette activité ?</label>
+          <label>Exercez-vous deja cette activite ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -171,7 +288,7 @@ export function Step0Profil({ state, onChange }: Props) {
                 })
               }
             >
-              Non, je démarre
+              Non, je demarre
             </button>
             <button
               type="button"
@@ -182,7 +299,7 @@ export function Step0Profil({ state, onChange }: Props) {
                 })
               }
             >
-              Oui, depuis…
+              Oui, depuis...
             </button>
           </div>
 
@@ -192,7 +309,7 @@ export function Step0Profil({ state, onChange }: Props) {
               <div className="start-date-selects">
                 <select
                   value={state.mois_debut_activite}
-                  onChange={(e) => onChange({ mois_debut_activite: e.target.value })}
+                  onChange={(event) => onChange({ mois_debut_activite: event.target.value })}
                 >
                   <option value="">Mois</option>
                   {MONTHS.map((month) => (
@@ -203,9 +320,9 @@ export function Step0Profil({ state, onChange }: Props) {
                 </select>
                 <select
                   value={state.annee_debut_activite}
-                  onChange={(e) => onChange({ annee_debut_activite: e.target.value })}
+                  onChange={(event) => onChange({ annee_debut_activite: event.target.value })}
                 >
-                  <option value="">Année</option>
+                  <option value="">Annee</option>
                   {YEARS.map((year) => (
                     <option key={year} value={year}>
                       {year}

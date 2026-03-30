@@ -25,15 +25,30 @@ export function determinerScenarioReference(
 ): ScenarioId | null {
   if (calculs.length === 0) return null;
 
-  // Préférer un scénario micro simple (sans booster) comme référence
+  // Préférer un scénario simple, sans booster, représentant le cas "standard".
+  const simple = [...calculs]
+    .filter(
+      (c) =>
+        c.boosters_actifs.length === 0 &&
+        c.option_vfl === "VFL_NON" &&
+        c.option_tva === "TVA_FRANCHISE"
+    )
+    .sort((left, right) => {
+      const scoreDelta =
+        _getScoreComplexiteBase(left.base_id) - _getScoreComplexiteBase(right.base_id);
+      if (scoreDelta !== 0) return scoreDelta;
+      return (right.intermediaires.NET_APRES_IR ?? 0) - (left.intermediaires.NET_APRES_IR ?? 0);
+    })[0];
+
+  if (simple) return simple.scenario_id;
+
+  // Fallback historique: un micro généraliste simple quand il existe.
   const micro = calculs.find(
     (c) =>
       (c.base_id === "G_MBIC_SERVICE" ||
         c.base_id === "G_MBNC" ||
         c.base_id === "G_MBIC_VENTE") &&
-      c.boosters_actifs.length === 0 &&
-      c.option_vfl === "VFL_NON" &&
-      c.option_tva === "TVA_FRANCHISE"
+      c.boosters_actifs.length === 0
   );
 
   if (micro) return micro.scenario_id;
@@ -268,6 +283,13 @@ function _getScoreComplexiteBase(baseId: string): number {
     G_EI_REEL_BIC_IS: 4, G_EI_REEL_BNC_IS: 4,
     G_EURL_IS: 4, G_EURL_IR: 4,
     G_SASU_IS: 5, G_SASU_IR: 5,
+    S_RSPM: 1, S_MICRO_BNC_SECTEUR_1: 2, S_MICRO_BNC_SECTEUR_2: 2,
+    S_EI_REEL_SECTEUR_1: 3, S_EI_REEL_SECTEUR_2_OPTAM: 3,
+    S_EI_REEL_SECTEUR_2_NON_OPTAM: 3, S_EI_REEL_SECTEUR_3_HORS_CONVENTION: 3,
+    S_SELARL_IS: 5, S_SELAS_IS: 5,
+    A_BNC_MICRO: 1, A_BNC_MICRO_TVA_FRANCHISE: 1, A_BNC_MICRO_TVA_COLLECTEE: 2,
+    A_BNC_REEL: 3, A_TS_ABATTEMENT_FORFAITAIRE: 2, A_TS_FRAIS_REELS: 3,
+    I_LMNP_MICRO: 1, I_LMNP_REEL: 4, I_LMP: 4,
   };
   return complexites[baseId] ?? 3;
 }

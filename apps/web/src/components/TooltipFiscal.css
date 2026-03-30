@@ -26,7 +26,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--ardoise-mid);
-  color: #fff;
+  color: var(--surface);
   font-size: 0.625rem;
   font-weight: 700;
   font-style: normal;
@@ -39,7 +39,7 @@
   left: 50%;
   transform: translateX(-50%);
   background: var(--text-primary);
-  color: #fff;
+  color: var(--surface);
   font-size: 0.8125rem;
   line-height: 1.5;
   padding: 0.625rem 0.875rem;
@@ -48,7 +48,7 @@
   width: max-content;
   box-shadow: 0 4px 16px rgba(0,0,0,.2);
   z-index: 100;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .tooltip-popup::after {

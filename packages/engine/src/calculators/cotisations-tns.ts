@@ -177,9 +177,9 @@ export function f_cotisations_tns_bic(
       detail_par_branche: detail,
       cotisations_minimales_appliquees: true,
       avertissement_minimales:
-        `Résultat faible : cotisations calculées (${cotisations_brutes.toFixed(0)} €) inférieures ` +
-        `au minimum forfaitaire (${total_minimal} €). ` +
-        "Cotisations minimales appliquées pour garantir les droits sociaux minimaux.",
+        `Revenus trop faibles pour atteindre le plancher de cotisations : le montant forfaitaire minimal ` +
+        `de ${total_minimal.toFixed(0)} € s'applique automatiquement, ce qui préserve vos droits ` +
+        "à l'assurance maladie et à la retraite de base.",
     };
   }
 

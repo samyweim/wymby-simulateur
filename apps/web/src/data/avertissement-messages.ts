@@ -48,8 +48,9 @@ export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
 
   // ── IR temporaire ────────────────────────────────────────────────────────
   OPTION_IR_TEMPORAIRE_DUREE_LIMITEE_5_ANS:
-    "L'option IR pour les sociétés (EURL/SASU) est limitée à 5 exercices. " +
-    "Au-delà, le passage à l'IS est automatique.",
+    "L'option pour l'impôt sur le revenu (transparence fiscale) est temporaire : " +
+    "elle s'applique au maximum sur 5 exercices consécutifs. " +
+    "Passé ce délai, la société bascule automatiquement à l'IS — anticipez la transition.",
 
   // ── Données incomplètes ───────────────────────────────────────────────────
   DONNEES_A_COMPLETER:
@@ -62,6 +63,13 @@ export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
     "Votre CA dépasse le seuil pour la première fois.",
 };
 
+export type DisplayMessageLevel = "info" | "warning";
+
+export interface DisplayMessage {
+  message: string;
+  level: DisplayMessageLevel;
+}
+
 /**
  * Traduit un code d'avertissement en message lisible.
  * Si le code n'est pas dans la table, retourne le message brut.
@@ -71,6 +79,9 @@ export function translateAvertissement(raw: string): string | null {
   // Supprimer les messages internes non destinés à l'utilisateur
   if (raw.startsWith("[ERREUR INPUT]")) return null;
   if (raw.startsWith("TODO")) return null;
+  // Code informatif interne : IR différentiel calculé avec données foyer complètes.
+  // Ne pas afficher à l'utilisateur — ce n'est pas une action requise.
+  if (raw === "IR_CALCUL_DIFFERENTIEL_AUTRES_REVENUS_FOYER") return null;
 
   // Correspondance exacte
   if (AVERTISSEMENT_TRANSLATIONS[raw]) {
@@ -80,10 +91,51 @@ export function translateAvertissement(raw: string): string | null {
   // Correspondance par préfixe (pour les messages dynamiques générés avec des données variables)
   for (const key of Object.keys(AVERTISSEMENT_TRANSLATIONS)) {
     if (raw.startsWith(key)) {
-      return AVERTISSEMENT_TRANSLATIONS[key];
+      return AVERTISSEMENT_TRANSLATIONS[key] ?? null;
     }
   }
 
   // Retourner le message brut si pas de traduction (peut déjà être lisible)
   return raw;
+}
+
+export function resolveDisplayMessage(raw: string): DisplayMessage | null {
+  const message = translateAvertissement(raw);
+
+  if (message === null) return null;
+
+  return {
+    message,
+    level: getDisplayMessageLevel(raw, message),
+  };
+}
+
+function getDisplayMessageLevel(raw: string, message: string): DisplayMessageLevel {
+  const normalized = `${raw} ${message}`.toLowerCase();
+
+  if (
+    normalized.includes("depassement_seuil") ||
+    normalized.includes("dépasse le seuil") ||
+    normalized.includes("passage tva au") ||
+    normalized.includes("tva applicable dès") ||
+    normalized.includes("référence") ||
+    normalized.includes("dernière mise à jour") ||
+    normalized.includes("accre appliquée") ||
+    normalized.includes("arce modélisée")
+  ) {
+    return "info";
+  }
+
+  if (
+    normalized.includes("potentiellement applicable") ||
+    normalized.includes("non renseign") ||
+    normalized.includes("à confirmer") ||
+    normalized.includes("fiabilité") ||
+    normalized.includes("interdit") ||
+    normalized.includes("erreur")
+  ) {
+    return "warning";
+  }
+
+  return "warning";
 }

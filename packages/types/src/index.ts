@@ -206,11 +206,14 @@ export interface UserInputTemporalite {
 
 export interface UserInputSante {
   EST_PROFESSION_SANTE?: boolean;
+  A_NUMERO_ADELI?: boolean;
   EST_CONVENTIONNE?: boolean;
   SECTEUR_CONVENTIONNEL?: SecteurConventionnel;
   EST_ELIGIBLE_AIDE_CPAM?: boolean;
   EST_ELIGIBLE_ZIP_ZAC?: boolean;
   AIDE_INSTALLATION_SANTE_DEMANDEE?: boolean;
+  EST_REMPLACANT?: boolean;
+  CHARGES_RETROCESSION?: number;
 }
 
 export interface UserInputArtisteAuteur {
@@ -497,17 +500,12 @@ export interface EngineOutput {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface EngineLog {
-  /** Numéro d'étape pipeline (1–10) */
-  etape: number;
-  /** Nom lisible de l'étape */
-  label: string;
+  step: number;
   level: LogLevel;
+  message: string;
   scenario_id?: string;
-  variable?: string;
-  valeur?: number | boolean | string;
   detail?: Record<string, unknown>;
-  motif?: string;
-  timestamp: string;
+  timestamp_ms: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

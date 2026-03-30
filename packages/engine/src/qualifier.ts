@@ -52,7 +52,23 @@ export function qualifierProfil(
   );
   const seuil_tva_tolerance = _getSeuilTVATolerance(input, params, norm.CA_HT_RETENU);
 
-  if (input.DATE_DEPASSEMENT_TVA_DECLARATIVE) {
+  const tvaExonereeSante = _isTvaExonereeSante(input);
+  if (
+    input.EST_PROFESSION_SANTE === true &&
+    input.A_NUMERO_ADELI === undefined &&
+    input.SEGMENT_ACTIVITE === "generaliste"
+  ) {
+    elements_a_confirmer.push(
+      "Profession liberale de sante detectee : confirmer la presence d'un numero ADELI pour qualifier correctement l'exoneration de TVA."
+    );
+  }
+
+  if (tvaExonereeSante) {
+    regime_tva = "TVA_FRANCHISE";
+    if (input.TVA_DEJA_APPLICABLE === true) {
+      avertissements.push("TVA_EXONERATION_SANTE_ADELI_A_VERIFIER");
+    }
+  } else if (input.DATE_DEPASSEMENT_TVA_DECLARATIVE) {
     regime_tva = "TVA_COLLECTEE";
     avertissements.push(
       `DEPASSEMENT_SEUIL_TVA_MAJORE_${_getTvaLabelSuffix(input)}`,
@@ -93,7 +109,6 @@ export function qualifierProfil(
   const FLAG_MICRO_BNC_POSSIBLE =
     segment === "generaliste" &&
     (input.SOUS_SEGMENT_ACTIVITE === "liberal" ||
-      input.SOUS_SEGMENT_ACTIVITE === "prestation" ||
       input.SOUS_SEGMENT_ACTIVITE === undefined) &&
     ca <= microParams.CFG_SEUIL_CA_MICRO_BNC;
 
@@ -129,7 +144,6 @@ export function qualifierProfil(
   const FLAG_EI_REEL_BNC_IR_POSSIBLE =
     segment === "generaliste" &&
     (input.SOUS_SEGMENT_ACTIVITE === "liberal" ||
-      input.SOUS_SEGMENT_ACTIVITE === "prestation" ||
       input.SOUS_SEGMENT_ACTIVITE === undefined);
 
   const FLAG_EI_REEL_BNC_IS_POSSIBLE = FLAG_EI_REEL_BNC_IR_POSSIBLE;
@@ -160,8 +174,10 @@ export function qualifierProfil(
 
   const recettesImmobilieres = input.RECETTES_LOCATION_MEUBLEE ?? input.CA_ENCAISSE_UTILISATEUR;
   const autresRevenusActivite = input.AUTRES_REVENUS_ACTIVITE_FOYER ?? 0;
+  // S01 RSPM : réservé aux remplaçants (EST_REMPLACANT = true), sous le plafond de recettes RSPM
   const FLAG_RSPM_POSSIBLE =
     segment === "sante" &&
+    input.EST_REMPLACANT === true &&
     input.SOUS_SEGMENT_ACTIVITE === "medecin" &&
     recettesImmobilieres <= (params.social.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0);
   const FLAG_SANTE_MICRO_POSSIBLE =
@@ -207,9 +223,13 @@ export function qualifierProfil(
 
   // ── TVA et dépassement ────────────────────────────────────────────────────
   const FLAG_TVA_APPLICABLE =
-    input.TVA_DEJA_APPLICABLE === true || input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined;
+    tvaExonereeSante
+      ? false
+      : input.TVA_DEJA_APPLICABLE === true || input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined;
   const FLAG_DEPASSEMENT_SEUIL_TVA =
-    input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined || ca > seuil_tva_tolerance;
+    tvaExonereeSante
+      ? false
+      : input.DATE_DEPASSEMENT_TVA_DECLARATIVE !== undefined || ca > seuil_tva_tolerance;
   const FLAG_CA_SAISI_EN_TTC = input.INPUT_MODE_CA === "TTC";
 
   // ── ACRE ──────────────────────────────────────────────────────────────────
@@ -351,7 +371,9 @@ function _getSeuilTVAFranchise(
 ): number {
   const ss = input.SOUS_SEGMENT_ACTIVITE;
   if (ss === "achat_revente") return params.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_VENTE;
-  if (ss === "liberal") return params.tva.CFG_SEUIL_TVA_FRANCHISE_BNC;
+  if (ss === "liberal" || ss === "medecin" || ss === "paramedical") {
+    return params.tva.CFG_SEUIL_TVA_FRANCHISE_BNC;
+  }
   return params.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_SERVICE;
 }
 
@@ -362,7 +384,9 @@ function _getSeuilTVATolerance(
 ): number {
   const ss = input.SOUS_SEGMENT_ACTIVITE;
   if (ss === "achat_revente") return params.tva.CFG_SEUIL_TVA_TOLERANCE_BIC_VENTE;
-  if (ss === "liberal") return params.tva.CFG_SEUIL_TVA_TOLERANCE_BNC;
+  if (ss === "liberal" || ss === "medecin" || ss === "paramedical") {
+    return params.tva.CFG_SEUIL_TVA_TOLERANCE_BNC;
+  }
   return params.tva.CFG_SEUIL_TVA_TOLERANCE_BIC_SERVICE;
 }
 
@@ -416,8 +440,18 @@ function _getMicroLabelSuffix(input: UserInput): string {
 
 function _getTvaLabelSuffix(input: UserInput): string {
   if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
-  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
+  if (
+    input.SOUS_SEGMENT_ACTIVITE === "liberal" ||
+    input.SOUS_SEGMENT_ACTIVITE === "medecin" ||
+    input.SOUS_SEGMENT_ACTIVITE === "paramedical"
+  ) {
+    return "BNC";
+  }
   return "BIC_SERVICE";
+}
+
+function _isTvaExonereeSante(input: UserInput): boolean {
+  return input.EST_PROFESSION_SANTE === true && input.A_NUMERO_ADELI === true;
 }
 
 function _isIRTemporaireValide(input: UserInput, params: FP): boolean {

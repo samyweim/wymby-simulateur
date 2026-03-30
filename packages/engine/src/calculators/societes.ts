@@ -39,6 +39,7 @@ export interface InputCalculSociete {
   nombre_parts_fiscales: number;
   nb_mois_exercice?: number;
   droits_are_restants?: number;
+  capital_social?: number;
 }
 
 export interface ResultatCalculSociete {
@@ -125,10 +126,12 @@ export function calculerSociete(
       // Approximation : appliquer PS 18,6 % (pire cas) + marquer fiabilité partielle
       DIVIDENDES_NETS_PERCUS = dividendes_effectifs * (1 - ps_params.taux_prelevements_sociaux_2026);
       niveau_fiabilite = "partiel";
-      avertissements.push(
-        "EURL IS : assiette cotisations TNS sur dividendes (franchise 10 % capital) — " +
-          "calcul approximatif. Fiabilité partielle. Fournir le montant du capital social pour un calcul précis."
-      );
+      if (!input.capital_social) {
+        avertissements.push(
+          "EURL IS : la franchise de cotisations TNS sur dividendes (10 % du capital social) n'a pas pu être calculée " +
+            "faute de montant de capital social. Indiquer votre capital pour affiner ce résultat."
+        );
+      }
     }
 
     // Base IR = rémunération brute + dividendes imposables

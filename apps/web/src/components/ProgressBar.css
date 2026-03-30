@@ -54,7 +54,7 @@
 .progress-step.done .progress-dot {
   background: var(--ardoise);
   border-color: var(--ardoise);
-  color: #fff;
+  color: var(--surface);
 }
 
 .progress-step.active .progress-dot {

@@ -120,6 +120,9 @@ export function calculerEIReel(
 
   if (cotisResult.cotisations_minimales_appliquees && cotisResult.avertissement_minimales) {
     avertissements.push(cotisResult.avertissement_minimales);
+    // cotisResult.cotisations_brutes already includes the minimum — use it when the
+    // estimation falls below the statutory minimum.
+    COTISATIONS_SOCIALES_BRUTES = Math.max(COTISATIONS_SOCIALES_BRUTES, cotisResult.cotisations_brutes);
   }
 
   niveau_fiabilite = "estimation";

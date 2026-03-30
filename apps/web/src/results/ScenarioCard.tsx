@@ -1,15 +1,18 @@
 import { useState } from "react";
 import type { DetailCalculScenario } from "@wymby/types";
 import { DeltaBadge } from "../components/DeltaBadge.js";
-import { getScenarioLabel } from "../data/scenario-labels.js";
+import { TooltipFiscal } from "../components/TooltipFiscal.js";
+import { getBoosterLabel, getScenarioLabel } from "../data/scenario-labels.js";
 import "./ScenarioCard.css";
 
 interface Props {
   scenario: DetailCalculScenario;
   isReference?: boolean;
   isRecommande?: boolean;
+  isOptimal?: boolean;
   ecartAnnuel?: number;
   rank?: number;
+  badges?: Array<"reference" | "recommande" | "optimal">;
 }
 
 const COMPLEXITE_LABELS = ["", "Très simple", "Simple", "Moyen", "Complexe", "Très complexe"];
@@ -60,8 +63,10 @@ export function ScenarioCard({
   scenario,
   isReference,
   isRecommande,
+  isOptimal,
   ecartAnnuel,
   rank,
+  badges,
 }: Props) {
   const [showDetail, setShowDetail] = useState(false);
   const inter = scenario.intermediaires as typeof scenario.intermediaires &
@@ -74,20 +79,38 @@ export function ScenarioCard({
     inter.ABATTEMENT_FORFAITAIRE > 0 &&
     !inter.CHARGES_DEDUCTIBLES;
   const monthlyNet = Math.round((inter.NET_APRES_IR ?? 0) / 12);
+  const activeBadges = badges ?? [
+    ...(isReference ? (["reference"] as const) : []),
+    ...(isRecommande ? (["recommande"] as const) : []),
+    ...(isOptimal ? (["optimal"] as const) : []),
+  ];
 
   return (
     <div
-      className={`sc-card ${isRecommande ? "sc-recommande" : ""} ${
-        isReference ? "sc-reference" : ""
+      className={`sc-card ${activeBadges.includes("recommande") ? "sc-recommande" : ""} ${
+        activeBadges.includes("reference") ? "sc-reference" : ""
+      } ${activeBadges.includes("optimal") ? "sc-optimal" : ""
       }`}
     >
-      {isRecommande && <div className="sc-badge sc-badge-recommande">Recommandé</div>}
-      {isReference && !isRecommande && <div className="sc-badge sc-badge-reference">Référence</div>}
+      {activeBadges.length > 0 && (
+        <div className="sc-badges">
+          {activeBadges.map((badge) => (
+            <div key={badge} className={`sc-badge sc-badge-${badge}`}>
+              {badge === "recommande" && "Recommandé"}
+              {badge === "reference" && "Référence"}
+              {badge === "optimal" && "Optimal"}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="sc-head">
         <div className="sc-title-wrap">
           {rank && !isRecommande && <span className="sc-rank">#{rank}</span>}
-          <h3 className="sc-title">{scenarioLabel.titre}</h3>
+          <div className="sc-title-block">
+            <h3 className="sc-title">{scenarioLabel.titre}</h3>
+            <p className="sc-title-desc">{scenarioLabel.description}</p>
+          </div>
         </div>
         <div className="sc-net">
           <span className="sc-net-label">Net après impôt</span>
@@ -216,11 +239,14 @@ export function ScenarioCard({
 
       {boosters.length > 0 && (
         <div className="sc-boosters">
-          {boosters.map((b) => (
-            <span key={b} className="sc-booster-tag">
-              {b.replace("BOOST_", "")}
-            </span>
-          ))}
+          {boosters.map((b) => {
+            const booster = getBoosterLabel(b);
+            return (
+              <TooltipFiscal key={b} term={booster.titre}>
+                {booster.description}
+              </TooltipFiscal>
+            );
+          })}
         </div>
       )}
 

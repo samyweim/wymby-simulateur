@@ -56,23 +56,20 @@ export function DebugPanel({ inputs, logs }: Props) {
                   <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Étape</th>
                   <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Niveau</th>
                   <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Message</th>
-                  <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Variable</th>
-                  <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Valeur</th>
+                  <th style={{ padding: "4px 8px", textAlign: "left", border: "1px solid #444" }}>Détail</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid #2a2a2a" }}>
-                    <td style={{ padding: "3px 8px", border: "1px solid #333", color: "#888" }}>{log.etape}</td>
+                    <td style={{ padding: "3px 8px", border: "1px solid #333", color: "#888" }}>{log.step}</td>
                     <td style={{ padding: "3px 8px", border: "1px solid #333", color: LEVEL_COLORS[log.level] ?? "#d4d4d4", fontWeight: "bold" }}>{log.level}</td>
                     <td style={{ padding: "3px 8px", border: "1px solid #333" }}>
-                      {log.label && <span style={{ color: "#888", marginRight: "4px" }}>[{log.label}]</span>}
-                      {log.motif ?? "—"}
+                      {log.message}
                       {log.scenario_id && <span style={{ color: "#6a9fb5", marginLeft: "4px" }}>@{log.scenario_id}</span>}
                     </td>
-                    <td style={{ padding: "3px 8px", border: "1px solid #333", color: "#9cdcfe" }}>{log.variable ?? "—"}</td>
                     <td style={{ padding: "3px 8px", border: "1px solid #333", color: "#b5cea8" }}>
-                      {log.valeur !== undefined ? String(log.valeur) : log.detail ? JSON.stringify(log.detail).slice(0, 80) : "—"}
+                      {log.detail ? JSON.stringify(log.detail).slice(0, 100) : "—"}
                     </td>
                   </tr>
                 ))}

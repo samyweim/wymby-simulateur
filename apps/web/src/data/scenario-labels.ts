@@ -9,6 +9,11 @@ export interface ScenarioLabel {
   description: string;
 }
 
+export interface BoosterLabel {
+  titre: string;
+  description: string;
+}
+
 export const SCENARIO_LABELS: Record<string, ScenarioLabel> = {
   // ── Généralistes ──────────────────────────────────────────────────────────
   G_MBIC_VENTE: {
@@ -135,6 +140,45 @@ export const SCENARIO_LABELS: Record<string, ScenarioLabel> = {
   },
 };
 
+export const BOOSTER_LABELS: Record<string, BoosterLabel> = {
+  BOOST_ACRE: {
+    titre: "ACRE",
+    description: "Réduction temporaire de cotisations sociales en début d'activité, sous conditions d'éligibilité.",
+  },
+  BOOST_ARCE: {
+    titre: "ARCE",
+    description: "Versement en capital d'une partie des droits ARE restants. C'est un apport de trésorerie, pas un revenu annuel récurrent.",
+  },
+  BOOST_ZFRR: {
+    titre: "ZFRR",
+    description: "Exonération fiscale de zone sur le bénéfice, selon la phase d'application du dispositif.",
+  },
+  BOOST_ZFRR_PLUS: {
+    titre: "ZFRR+",
+    description: "Version renforcée de la ZFRR avec effet fiscal et social selon les paramètres du dispositif.",
+  },
+  BOOST_QPV: {
+    titre: "QPV",
+    description: "Exonération de zone en quartier prioritaire, avec conditions d'éligibilité et parfois proratisation.",
+  },
+  BOOST_ZFU_STOCK: {
+    titre: "ZFU",
+    description: "Maintien de droits acquis d'exonération en ancienne zone franche urbaine.",
+  },
+  BOOST_ZIP_ZAC: {
+    titre: "ZIP / ZAC",
+    description: "Aide forfaitaire d'installation en zone prioritaire de santé, si le profil y est éligible.",
+  },
+  BOOST_CPAM: {
+    titre: "Aide CPAM",
+    description: "Prise en charge partielle de certaines cotisations maladie ou retraite selon le secteur conventionnel.",
+  },
+  BOOST_RAAP_REDUIT: {
+    titre: "RAAP réduit",
+    description: "Option de taux réduit sur la retraite complémentaire RAAP pour les artistes-auteurs, sous conditions.",
+  },
+};
+
 /**
  * Retourne le libellé d'un scénario à partir de son ID complet.
  * Essaie d'abord la correspondance exacte, puis le base_id extrait.
@@ -144,8 +188,7 @@ export function getScenarioLabel(scenarioId: string): ScenarioLabel {
     return SCENARIO_LABELS[scenarioId];
   }
   // Extraire le base_id en supprimant les suffixes d'options et de boosters
-  const baseId = scenarioId
-    .split("__")[0]
+  const baseId = (scenarioId.split("__")[0] ?? scenarioId)
     .replace(/_BOOST_[A-Z_]+$/, "")
     .replace(/_TVA_[A-Z]+$/, "")
     .replace(/_VFL_(OUI|NON)$/, "");
@@ -154,6 +197,15 @@ export function getScenarioLabel(scenarioId: string): ScenarioLabel {
     SCENARIO_LABELS[baseId] ?? {
       titre: scenarioId,
       description: "",
+    }
+  );
+}
+
+export function getBoosterLabel(boosterId: string): BoosterLabel {
+  return (
+    BOOSTER_LABELS[boosterId] ?? {
+      titre: boosterId.replace("BOOST_", ""),
+      description: "Dispositif appliqué à ce scénario.",
     }
   );
 }

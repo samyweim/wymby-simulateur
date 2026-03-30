@@ -48,15 +48,21 @@ export function appliquerFiltresExclusion(
 
     if (qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO && norm.CA_HT_RETENU > seuil) {
       const caN1DepasseSeuil = caN1 !== undefined && caN1 > seuil;
+      // When CA exceeds 2× the micro threshold it is implausible the user was on micro
+      // the prior year — enforce basculement even without CA N-1 data.
+      const depassement_massif = norm.CA_HT_RETENU > seuil * 2;
 
-      if (caN1DepasseSeuil) {
-        // Deux années consécutives de dépassement → bascule réel confirmée
+      if (caN1DepasseSeuil || depassement_massif) {
+        // Two consecutive years confirmed, or CA too far above threshold to tolerate
         basculement_reel_oblige = true;
         motifs["X01"] =
-          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la deuxième ` +
-          "année consécutive. Bascule en régime réel obligatoire (filtre X01).";
+          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) ` +
+          (caN1DepasseSeuil
+            ? "pour la deuxième année consécutive."
+            : `(plus de 2× le seuil — tolérance première année inapplicable).`) +
+          " Bascule en régime réel obligatoire (filtre X01).";
       } else {
-        // Première année de dépassement ou CA N-1 inconnu → tolérance
+        // First year of exceeding the threshold, or CA N-1 unknown but marginal overshoot
         premiere_annee_depassement = true;
         motifs["X01_PREMIERE_ANNEE"] =
           `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la ` +

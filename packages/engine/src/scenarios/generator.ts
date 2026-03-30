@@ -43,7 +43,7 @@ export function genererScenarios(
 
   for (const meta of metasBase) {
     // Vérifier éligibilité de la base
-    if (!_isBaseEligible(meta.id, qual)) continue;
+    if (!_isBaseEligible(meta.id, input, qual, filtres)) continue;
 
     // Générer les combinaisons TVA
     for (const optTva of meta.options_tva) {
@@ -101,26 +101,38 @@ export function genererScenarios(
 
 function _isBaseEligible(
   baseId: string,
-  qual: QualificationResult
+  input: UserInput,
+  qual: QualificationResult,
+  filtres: FiltreExclusionResult
 ): boolean {
   const f = qual.flags;
 
   switch (baseId) {
+    // Micro scénarios : bloqués si bascule réel obligatoire (X01 deux années consécutives).
+    // FLAG_PREMIERE_ANNEE_DEPASSEMENT est positionné AVANT la génération dans index.ts.
+    // En cas de basculement réel obligatoire, on laisse passer ici pour que le filtre
+    // d'exclusion les classe explicitement dans les scénarios exclus avec leur motif.
     case "G_MBIC_VENTE":
+      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
+        return input.SOUS_SEGMENT_ACTIVITE === "achat_revente";
+      }
       return qual.segment === "generaliste" &&
         (qual.flags.FLAG_MICRO_BIC_VENTE_POSSIBLE ||
-          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
-          inputCompatibleWithBase(qual, "achat_revente"));
+          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
     case "G_MBIC_SERVICE":
+      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
+        return input.SOUS_SEGMENT_ACTIVITE === "prestation" || input.SOUS_SEGMENT_ACTIVITE === undefined;
+      }
       return qual.segment === "generaliste" &&
         (qual.flags.FLAG_MICRO_BIC_SERVICE_POSSIBLE ||
-          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
-          inputCompatibleWithBase(qual, "prestation"));
+          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
     case "G_MBNC":
+      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
+        return input.SOUS_SEGMENT_ACTIVITE === "liberal";
+      }
       return qual.segment === "generaliste" &&
         (qual.flags.FLAG_MICRO_BNC_POSSIBLE ||
-          qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO ||
-          inputCompatibleWithBase(qual, "liberal"));
+          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
     case "G_EI_REEL_BIC_IR": return f.FLAG_EI_REEL_BIC_IR_POSSIBLE;
     case "G_EI_REEL_BIC_IS": return f.FLAG_EI_REEL_BIC_IS_POSSIBLE;
     case "G_EI_REEL_BNC_IR": return f.FLAG_EI_REEL_BNC_IR_POSSIBLE;
@@ -131,15 +143,16 @@ function _isBaseEligible(
     case "G_SASU_IR": return f.FLAG_SASU_IR_POSSIBLE;
     case "S_RSPM": return f.FLAG_RSPM_POSSIBLE;
     case "S_MICRO_BNC_SECTEUR_1":
+      return qual.segment === "sante" && f.FLAG_SANTE_MICRO_POSSIBLE && _isHealthSectorCompatible(baseId, input);
     case "S_MICRO_BNC_SECTEUR_2":
-      return qual.segment === "sante" && f.FLAG_SANTE_MICRO_POSSIBLE;
+      return qual.segment === "sante" && f.FLAG_SANTE_MICRO_POSSIBLE && _isHealthSectorCompatible(baseId, input);
     case "S_EI_REEL_SECTEUR_1":
     case "S_EI_REEL_SECTEUR_2_OPTAM":
     case "S_EI_REEL_SECTEUR_2_NON_OPTAM":
     case "S_EI_REEL_SECTEUR_3_HORS_CONVENTION":
     case "S_SELARL_IS":
     case "S_SELAS_IS":
-      return qual.segment === "sante" && f.FLAG_SANTE_REEL_POSSIBLE;
+      return qual.segment === "sante" && f.FLAG_SANTE_REEL_POSSIBLE && _isHealthSectorCompatible(baseId, input);
     // Artiste-auteur (V2)
     case "A_BNC_MICRO":
       return qual.segment === "artiste_auteur" && f.FLAG_ARTISTE_AUTEUR_BNC_MICRO_POSSIBLE;
@@ -162,22 +175,41 @@ function _isBaseEligible(
   }
 }
 
-function inputCompatibleWithBase(
-  qual: QualificationResult,
-  sousSegment: "achat_revente" | "prestation" | "liberal"
+function _isHealthSectorCompatible(
+  baseId: string,
+  input: UserInput
 ): boolean {
-  const actif = Object.entries(qual.flags)
-    .filter(([, value]) => value === true)
-    .map(([key]) => key);
+  const secteur = input.SECTEUR_CONVENTIONNEL;
 
-  if (sousSegment === "achat_revente") {
-    return actif.includes("FLAG_EI_REEL_BIC_IR_POSSIBLE");
+  if (!secteur) return true;
+
+  if (baseId === "S_RSPM") {
+    return input.EST_REMPLACANT === true;
   }
-  if (sousSegment === "prestation") {
-    return actif.includes("FLAG_EI_REEL_BIC_IR_POSSIBLE");
+
+  if (baseId === "S_MICRO_BNC_SECTEUR_1" || baseId === "S_EI_REEL_SECTEUR_1") {
+    return secteur === "secteur_1";
   }
-  return actif.includes("FLAG_EI_REEL_BNC_IR_POSSIBLE");
+
+  if (baseId === "S_MICRO_BNC_SECTEUR_2" || baseId === "S_EI_REEL_SECTEUR_2_NON_OPTAM") {
+    return secteur === "secteur_2" || secteur === "secteur_2_non_optam";
+  }
+
+  if (baseId === "S_EI_REEL_SECTEUR_2_OPTAM") {
+    return secteur === "secteur_2_optam";
+  }
+
+  if (baseId === "S_EI_REEL_SECTEUR_3_HORS_CONVENTION") {
+    return secteur === "secteur_3" || secteur === "hors_convention";
+  }
+
+  if (baseId === "S_SELARL_IS" || baseId === "S_SELAS_IS") {
+    return true;
+  }
+
+  return true;
 }
+
 
 function _genererCombinaisonsBoosters(
   baseId: string,

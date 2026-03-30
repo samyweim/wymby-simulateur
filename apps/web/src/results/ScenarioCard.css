@@ -13,6 +13,10 @@
 
 .sc-card:hover { box-shadow: var(--shadow-hover); }
 
+.sc-optimal {
+  border-color: var(--ocre-mid);
+}
+
 .sc-recommande {
   border-color: var(--ardoise);
   background: var(--ardoise-light);
@@ -23,10 +27,16 @@
   border-color: var(--sage-mid);
 }
 
-.sc-badge {
+.sc-badges {
   position: absolute;
   top: -12px;
   left: 1.25rem;
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sc-badge {
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: .04em;
@@ -35,8 +45,9 @@
   border-radius: 4px;
 }
 
-.sc-badge-recommande { background: var(--ardoise); color: #fff; }
-.sc-badge-reference  { background: var(--sage); color: #fff; }
+.sc-badge-recommande { background: var(--ardoise); color: var(--surface); }
+.sc-badge-reference  { background: var(--sage); color: var(--surface); }
+.sc-badge-optimal { background: var(--ocre); color: var(--surface); }
 
 .sc-head {
   display: flex;
@@ -47,8 +58,17 @@
 
 .sc-title-wrap {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sc-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
 }
 
 .sc-rank {
@@ -63,9 +83,19 @@
 
 .sc-title {
   font-family: var(--font-serif);
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 400;
   color: var(--text-primary);
+  margin: 0;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.sc-title-desc {
+  /* WYMBY-AUDIT: font-size hors charte — valeur: 0.78rem */
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
   margin: 0;
 }
 
@@ -74,6 +104,7 @@
   flex-direction: column;
   align-items: flex-end;
   flex-shrink: 0;
+  min-width: 10rem;
 }
 
 .sc-net-label {
@@ -86,9 +117,11 @@
 
 .sc-net-value {
   font-family: var(--font-serif);
-  font-size: 1.625rem;
+  /* WYMBY-AUDIT: font-size hors charte — valeur: clamp(1.8rem, 2vw, 2.5rem) */
+  font-size: clamp(1.8rem, 2vw, 2.5rem);
   color: var(--text-primary);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .sc-net-monthly {
@@ -115,7 +148,9 @@
 .sc-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem 1rem;
+  gap: 0.75rem 1rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border);
 }
 
 .sc-metric {
@@ -127,11 +162,14 @@
 .sc-metric-label {
   font-size: 0.75rem;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
 }
 
 .sc-metric-value {
-  font-size: 0.9375rem;
-  font-weight: 500;
+  /* WYMBY-AUDIT: font-size hors charte — valeur: 1.05rem */
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -150,6 +188,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.375rem;
+}
+
+.sc-boosters .tooltip-trigger {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--sage-light);
+  color: var(--sage);
+  border: 1px solid var(--sage-mid);
+  text-decoration: none;
+}
+
+.sc-boosters .tooltip-icon {
+  display: none;
 }
 
 .sc-detail-toggle {
@@ -220,18 +275,6 @@
   color: var(--text-secondary);
 }
 
-.sc-booster-tag {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  background: var(--sage-light);
-  color: var(--sage);
-  border: 1px solid var(--sage-mid);
-}
-
 .sc-fiabilite {
   font-size: 0.75rem;
   font-weight: 500;
@@ -258,5 +301,16 @@
 
   .sc-metrics {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .sc-head {
+    flex-direction: column;
+  }
+
+  .sc-net {
+    align-items: flex-start;
+    min-width: 0;
   }
 }

@@ -4,6 +4,7 @@ import "./FiabiliteBar.css";
 interface Props {
   niveau: NiveauFiabilite;
   score: number;
+  description?: string;
 }
 
 const LABELS: Record<NiveauFiabilite, string> = {
@@ -18,7 +19,7 @@ const DESCRIPTIONS: Record<NiveauFiabilite, string> = {
   estimation: "Plusieurs hypothèses ont été utilisées. Renseignez vos revenus foyer pour affiner.",
 };
 
-export function FiabiliteBar({ niveau, score }: Props) {
+export function FiabiliteBar({ niveau, score, description }: Props) {
   return (
     <div className={`fiabilite-bar fiabilite-${niveau}`}>
       <div className="fiabilite-header">
@@ -28,7 +29,7 @@ export function FiabiliteBar({ niveau, score }: Props) {
       <div className="fiabilite-track">
         <div className="fiabilite-fill" style={{ width: `${score * 10}%` }} />
       </div>
-      <p className="fiabilite-desc">{DESCRIPTIONS[niveau]}</p>
+      <p className="fiabilite-desc">{description ?? DESCRIPTIONS[niveau]}</p>
     </div>
   );
 }

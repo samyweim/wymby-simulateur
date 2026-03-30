@@ -1,5 +1,5 @@
 /**
- * WizardState — données collectées par le wizard, sans jargon fiscal.
+ * WizardState - donnees collectees par le wizard, sans jargon fiscal.
  * Le mapper.ts les convertit en UserInput pour le moteur.
  */
 
@@ -21,20 +21,29 @@ export type SecteurConventionnel =
   | "3"
   | "";
 
+export type StatutExerciceSante =
+  | "remplacant"
+  | "titulaire_installe"
+  | "associe_groupe"
+  | "";
+
 export type SituationFamilialeWizard =
   | "seul"
   | "en_couple"
   | "";
 
 export interface WizardState {
-  // Step 0 — Activité
   type_activite: TypeActivite;
+  est_profession_sante: boolean | null;
+  a_numero_adeli: boolean | null;
   secteur_conventionnel: SecteurConventionnel;
+  statut_exercice_sante: StatutExerciceSante;
+  charges_retrocession: string;
+  mode_retrocession: "euros" | "percent";
   est_deja_en_activite: boolean | null;
   mois_debut_activite: string;
   annee_debut_activite: string;
 
-  // Step 1 — Revenus
   ca_annuel: string;
   mode_ca: "HT" | "TTC";
   a_des_charges: boolean | null;
@@ -54,9 +63,8 @@ export interface WizardState {
   amort_vehicule: string;
   amort_mobilier: string;
   amort_logiciels: string;
-  certitude_ca: "certain" | "estimé" | "faible";
+  certitude_ca: "certain" | "estimé" | "estimÃ©" | "estimÃƒÂ©" | "faible";
 
-  // Step 2 — Situation personnelle
   situation_familiale: SituationFamilialeWizard;
   nb_enfants: number;
   a_autres_revenus: boolean | null;
@@ -65,8 +73,6 @@ export interface WizardState {
   connait_rfr: boolean | null;
   rfr_n2: string;
 
-  // Step 3 — Aides et situations particulières
-  // Note: est_creation est dérivé de est_deja_en_activite (Step 0) — non demandé en Step 3
   percoit_chomage: boolean | null;
   droits_are_restants: string;
   code_postal: string;
@@ -77,7 +83,12 @@ export interface WizardState {
 
 export const WIZARD_INITIAL_STATE: WizardState = {
   type_activite: "",
+  est_profession_sante: null,
+  a_numero_adeli: null,
   secteur_conventionnel: "",
+  statut_exercice_sante: "",
+  charges_retrocession: "",
+  mode_retrocession: "euros",
   est_deja_en_activite: null,
   mois_debut_activite: "",
   annee_debut_activite: "",
