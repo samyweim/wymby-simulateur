@@ -439,7 +439,7 @@ export const TEST_CASES: TestCase[] = [
   // ════════════════════════════════════════════════════════════════════════════
   {
     id: "TC-G-008",
-    description: "Micro-BIC vente — dépassement seuil CA → exclusion micro",
+    description: "Micro-BIC vente — dépassement seuil CA → tolérance première année (X01)",
     segment: "generaliste",
     scenario_base: "G_MBIC_VENTE",
     inputs: {
@@ -453,22 +453,23 @@ export const TEST_CASES: TestCase[] = [
       DATE_CREATION_ACTIVITE: "2024-01-01",
     },
     expected: {
-      // Micro exclu — pas de calcul micro possible
-      COTISATIONS_SOCIALES_NETTES: 0,
-      NET_AVANT_IR: 0,
-      NET_APRES_IR: 0,
+      // Règle fiscale : première année de dépassement tolérée (CA N-1 inconnu).
+      // Micro maintenu avec avertissement DERNIER_EXERCICE_MICRO_POSSIBLE.
+      COTISATIONS_SOCIALES_NETTES: 25_830,
       flags: {
         FLAG_MICRO_BIC_VENTE_POSSIBLE: false,
         FLAG_DEPASSEMENT_SEUIL_MICRO: true,
         FLAG_EI_REEL_BIC_IR_POSSIBLE: true,
+        FLAG_PREMIERE_ANNEE_DEPASSEMENT: true,
       },
-      scenarios_exclus: ["G_MBIC_VENTE"],
-      avertissements: ["DEPASSEMENT_SEUIL_MICRO_BIC_VENTE", "BASCULEMENT_REEL_OBLIGE"],
-      niveau_fiabilite: "partiel",
+      avertissements: ["première fois"],
+      niveau_fiabilite: "estimation",
     },
     calcul_notes:
       "CA 210000 > seuil micro-BIC vente 203100. " +
-      "Filtre X01 activé. Micro exclu, réel BIC ouvert automatiquement.",
+      "CA N-1 inconnu → première année de dépassement tolérée. " +
+      "Micro maintenu avec tag DERNIER_EXERCICE_MICRO_POSSIBLE. " +
+      "Bascule réel obligatoire au 01/01/N+1.",
   },
 
   // ════════════════════════════════════════════════════════════════════════════

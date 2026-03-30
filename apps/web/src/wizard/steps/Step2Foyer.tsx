@@ -87,39 +87,63 @@ export function Step2Foyer({ state, onChange }: Props) {
 
         {/* RFR N-2 */}
         <div className="field">
-          <label>Connaissez-vous votre revenu fiscal de référence 2024 ?</label>
+          <label>Aviez-vous des revenus imposables en 2023 ?</label>
           <div className="toggle-group">
             <button
               type="button"
-              className={`toggle-btn ${state.connait_rfr === true ? "active" : ""}`}
-              onClick={() => onChange({ connait_rfr: true })}
-            >Oui, je l'ai</button>
+              className={`toggle-btn ${state.avait_revenus_n2 === true ? "active" : ""}`}
+              onClick={() => onChange({ avait_revenus_n2: true })}
+            >Oui</button>
             <button
               type="button"
-              className={`toggle-btn ${state.connait_rfr === false ? "active" : ""}`}
-              onClick={() => onChange({ connait_rfr: false, rfr_n2: "" })}
-            >Non / je ne sais pas</button>
+              className={`toggle-btn ${state.avait_revenus_n2 === false ? "active" : ""}`}
+              onClick={() => onChange({ avait_revenus_n2: false, connait_rfr: null, rfr_n2: "" })}
+            >Non</button>
           </div>
           <span className="hint">
-            Il figure sur votre avis d'imposition 2024 (revenus 2023). Nécessaire pour valider l'option
-            versement libératoire.
+            Nécessaire pour vérifier l'éligibilité au versement libératoire de l'impôt.
           </span>
         </div>
 
-        {shouldShow("rfr_n2", state) && (
-          <div className="field field-indent">
-            <label>Revenu fiscal de référence 2024</label>
-            <div className="input-suffix-wrap">
-              <input
-                type="number"
-                min="0"
-                placeholder="ex. 42 000"
-                value={state.rfr_n2}
-                onChange={(e) => onChange({ rfr_n2: e.target.value })}
-              />
-              <span className="input-suffix">€</span>
+        {state.avait_revenus_n2 === true && (
+          <>
+            <div className="field">
+              <label>Connaissez-vous votre revenu fiscal de référence 2024 ?</label>
+              <div className="toggle-group">
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.connait_rfr === true ? "active" : ""}`}
+                  onClick={() => onChange({ connait_rfr: true })}
+                >Oui, je l'ai</button>
+                <button
+                  type="button"
+                  className={`toggle-btn ${state.connait_rfr === false ? "active" : ""}`}
+                  onClick={() => onChange({ connait_rfr: false, rfr_n2: "" })}
+                >Non / je ne sais pas</button>
+              </div>
+              <span className="hint">
+                Case « RFR » sur votre avis d'imposition 2024 (revenus 2023) —{" "}
+                <a href="https://www.impots.gouv.fr" target="_blank" rel="noreferrer">impots.gouv.fr</a>.
+                Nécessaire pour valider l'option versement libératoire.
+              </span>
             </div>
-          </div>
+
+            {shouldShow("rfr_n2", state) && (
+              <div className="field field-indent">
+                <label>Revenu fiscal de référence 2024</label>
+                <div className="input-suffix-wrap">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="ex. 42 000"
+                    value={state.rfr_n2}
+                    onChange={(e) => onChange({ rfr_n2: e.target.value })}
+                  />
+                  <span className="input-suffix">€</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

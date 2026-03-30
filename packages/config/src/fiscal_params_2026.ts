@@ -2098,6 +2098,20 @@ export const FISCAL_PARAMS_2026 = {
 
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // COMPTABILITÉ — SEUILS DE GESTION COMPTABLE
+  // ═══════════════════════════════════════════════════════════════════════════
+  comptabilite: {
+    /**
+     * Seuil d'immobilisation du matériel de bureau (€)
+     * Source : CGI art. 39-1-2° — seuil pratique d'immobilisation du petit matériel.
+     * En dessous de ce seuil, le matériel peut être passé en charge immédiate.
+     * Note : peut être abaissé à 0 sur option. Seuil par défaut pratique.
+     */
+    CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN: 500,
+  },
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // ═══════════════════════════════════════════════════════════════════════════
   // PENDING — Aucun paramètre en attente.
   //

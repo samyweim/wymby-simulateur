@@ -163,6 +163,7 @@ export interface UserInputProfil {
 export interface UserInputActivite {
   INPUT_MODE_CA: InputModeCA;
   CA_ENCAISSE_UTILISATEUR: number;
+  CA_N1_ANTERIEUR?: number;
   TVA_COLLECTEE_UTILISATEUR?: number;
   TVA_DEDUCTIBLE_UTILISATEUR?: number;
   AUTRES_RECETTES_PRO?: number;
@@ -231,6 +232,7 @@ export interface UserInputImmobilier {
 export interface UserInputAides {
   EST_CREATEUR_REPRENEUR?: boolean;
   ACRE_DEMANDEE?: boolean;
+  CAPITAL_SOCIAL?: number;
   EST_ELIGIBLE_ACRE_DECLARATIF?: boolean;
   ARCE_DEMANDEE?: boolean;
   EST_BENEFICIAIRE_ARE?: boolean;
@@ -307,6 +309,7 @@ export interface QualificationFlags {
   FLAG_ZFU_STOCK_DROITS_POSSIBLE: boolean;
   FLAG_TAXE_PUMA_APPLICABLE: boolean;
   FLAG_DONNEES_A_COMPLETER: boolean;
+  FLAG_PREMIERE_ANNEE_DEPASSEMENT: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -321,6 +324,8 @@ export interface IntermediairesCalcul {
   TVA_NETTE_DUE: number;
   RECETTES_PRO_RETENUES: number;
   ABATTEMENT_FORFAITAIRE: number;
+  CHARGES_DEDUCTIBLES?: number;
+  DOTATIONS_AMORTISSEMENTS?: number;
   RESULTAT_COMPTABLE: number;
   RESULTAT_FISCAL_AVANT_EXONERATIONS: number;
   RESULTAT_FISCAL_APRES_EXONERATIONS: number;

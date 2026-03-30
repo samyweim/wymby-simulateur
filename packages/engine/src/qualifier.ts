@@ -103,7 +103,8 @@ export function qualifierProfil(
 
   if (FLAG_DEPASSEMENT_SEUIL_MICRO) {
     avertissements.push(`DEPASSEMENT_SEUIL_MICRO_${_getMicroLabelSuffix(input)}`);
-    avertissements.push("BASCULEMENT_REEL_OBLIGE");
+    // Note : BASCULEMENT_REEL_OBLIGE est déterminé dans exclusion.ts
+    // selon la règle de tolérance (deux années consécutives requises).
   }
 
   logger.calc(2, "Qualification micro", "FLAG_MICRO_BIC_VENTE_POSSIBLE", FLAG_MICRO_BIC_VENTE_POSSIBLE);
@@ -305,6 +306,7 @@ export function qualifierProfil(
     FLAG_ZFU_STOCK_DROITS_POSSIBLE,
     FLAG_TAXE_PUMA_APPLICABLE,
     FLAG_DONNEES_A_COMPLETER,
+    FLAG_PREMIERE_ANNEE_DEPASSEMENT: false, // updated in index.ts after exclusion filters
   };
 
   logger.info(2, "Qualification complète", {

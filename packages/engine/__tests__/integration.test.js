@@ -144,14 +144,17 @@ function baseInput(overrides) {
         const microService = output.calculs_par_scenario.find((c) => c.base_id === "G_MBIC_SERVICE");
         (0, vitest_1.expect)(microService).toBeDefined();
     });
-    (0, vitest_1.it)("CA = seuil + 1 : micro exclu (X01 filtrage)", () => {
+    (0, vitest_1.it)("CA = seuil + 1 : première année de dépassement — micro maintenu avec avertissement (X01 tolérance)", () => {
         const [output] = (0, index_js_1.runEngineWithLogs)(baseInput({ CA_ENCAISSE_UTILISATEUR: SEUIL + 1 }));
-        // Micro BIC SERVICE doit être exclu ou absent des calculs
+        // Règle fiscale : la première année de dépassement est tolérée.
+        // Le scénario micro doit être calculé (non exclu).
         const microService = output.calculs_par_scenario.find((c) => c.base_id === "G_MBIC_SERVICE");
-        // Vérifie soit l'absence dans calculs, soit la présence dans exclus
-        const microExclu = output.scenarios_exclus.some((e) => e.scenario_id.includes("G_MBIC_SERVICE"));
-        // Au moins l'une des deux conditions doit être vraie
-        (0, vitest_1.expect)(!microService || microExclu).toBe(true);
+        (0, vitest_1.expect)(microService).toBeDefined();
+        // Le flag FLAG_PREMIERE_ANNEE_DEPASSEMENT doit être levé
+        (0, vitest_1.expect)(output.qualification?.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).toBe(true);
+        // L'avertissement global signale la première année de dépassement
+        const hasAvert = output.qualite_resultat.avertissements.some((a) => a.includes("première fois") || a.includes("première année") || a.includes("X01_PREMIERE_ANNEE"));
+        (0, vitest_1.expect)(hasAvert).toBe(true);
     });
 });
 (0, vitest_1.describe)("Cas limite — ARCE demandée : NET_APRES_IR ≠ SUPER_NET", () => {

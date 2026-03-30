@@ -115,6 +115,15 @@ function _runEngineInternal(
   // ── Étape 3 : Filtres d'exclusion ─────────────────────────────────────────
   const filtres = appliquerFiltresExclusion(input, norm, qual, params, logger);
 
+  // Propagate première année dépassement flag to qualification flags
+  if (filtres.premiere_annee_depassement) {
+    qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT = true;
+    avertissements_globaux.push(filtres.motifs["X01_PREMIERE_ANNEE"] ?? "X01_PREMIERE_ANNEE");
+  } else if (filtres.basculement_reel_oblige) {
+    avertissements_globaux.push("BASCULEMENT_REEL_OBLIGE");
+    avertissements_globaux.push(filtres.motifs["X01"] ?? "X01");
+  }
+
   // ── Étapes 4–6 : Génération des scénarios ─────────────────────────────────
   const scenarios_bruts = genererScenarios(input, qual, filtres, params, logger);
 

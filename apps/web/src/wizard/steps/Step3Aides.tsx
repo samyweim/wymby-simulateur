@@ -1,6 +1,7 @@
 import type { WizardState } from "../types.js";
 import { resolveZoneFromCodePostal } from "../../data/zones_cp.js";
 import { shouldShow } from "../visibility.js";
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import "./Step.css";
 
 interface Props {
@@ -9,36 +10,36 @@ interface Props {
 }
 
 export function Step3Aides({ state, onChange }: Props) {
+  const caNum = parseFloat(state.ca_annuel) || 0;
+  const tvaSeuil =
+    state.type_activite === "commerce"
+      ? FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_VENTE
+      : state.type_activite === "liberal_reglemente" ||
+          state.type_activite === "liberal_non_reglemente" ||
+          state.type_activite === "sante_medecin" ||
+          state.type_activite === "sante_paramedicale" ||
+          state.type_activite === "artiste"
+        ? FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BNC
+        : FISCAL_PARAMS_2026.tva.CFG_SEUIL_TVA_FRANCHISE_BIC_SERVICE;
+  const tvaProbable = caNum > 0 ? caNum >= tvaSeuil : null;
+
   return (
     <div className="step">
       <div className="step-header">
-        <h2>Aides et situations particulieres</h2>
-        <p>Ces dispositifs peuvent reduire significativement vos charges la premiere annee.</p>
+        <h2>Aides et situations particulières</h2>
+        <p>Ces dispositifs peuvent réduire significativement vos charges la première année.</p>
       </div>
 
       <div className="step-fields">
-        <div className="field">
-          <label>Etes-vous en train de creer ou reprendre une activite ?</label>
-          <div className="toggle-group">
-            <button
-              type="button"
-              className={`toggle-btn ${state.est_creation === true ? "active" : ""}`}
-              onClick={() => onChange({ est_creation: true, est_deja_en_activite: false })}
-            >
-              Oui
-            </button>
-            <button
-              type="button"
-              className={`toggle-btn ${state.est_creation === false ? "active" : ""}`}
-              onClick={() => onChange({ est_creation: false })}
-            >
-              Non
-            </button>
+        {state.est_deja_en_activite === false && (
+          <div className="field-notice">
+            Votre profil indique une création ou reprise d'activité. Les aides au démarrage
+            (ACRE, ARCE) sont prises en compte automatiquement si applicable.
           </div>
-        </div>
+        )}
 
         <div className="field">
-          <label>Percevez-vous des allocations chomage (ARE) ?</label>
+          <label>Percevez-vous des allocations chômage (ARE) ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -70,12 +71,14 @@ export function Step3Aides({ state, onChange }: Props) {
               />
               <span className="input-suffix">€</span>
             </div>
-            <span className="hint">Utilise pour estimer l'ARCE comme flux de tresorerie distinct.</span>
+            <span className="hint">
+              Utilisé pour estimer l'ARCE comme flux de trésorerie distinct.
+            </span>
           </div>
         )}
 
         <div className="field">
-          <label>Code postal de votre lieu d'activite principal</label>
+          <label>Code postal de votre lieu d'activité principal</label>
           <input
             type="text"
             inputMode="numeric"
@@ -92,18 +95,18 @@ export function Step3Aides({ state, onChange }: Props) {
             if (zone === "aucune") return null;
             return (
               <div className="field-zone-detected">
-                Zone detectee : <strong>{zone}</strong> — exoneration applicable a votre dossier.
+                Zone détectée : <strong>{zone}</strong> — exonération applicable à votre dossier.
               </div>
             );
           })()}
           <span className="hint">
-            Utilise pour detecter automatiquement une zone d'exoneration fiscale (ZFRR, QPV…).
+            Utilisé pour détecter automatiquement une zone d'exonération fiscale (ZFRR, QPV…).
           </span>
         </div>
 
         {shouldShow("envisage_associes", state) && (
           <div className="field">
-            <label>Envisagez-vous d'avoir des associes ou des salaries ?</label>
+            <label>Envisagez-vous d'avoir des associés ou des salariés ?</label>
             <div className="toggle-group">
               <button
                 type="button"
@@ -121,33 +124,69 @@ export function Step3Aides({ state, onChange }: Props) {
               </button>
             </div>
             <span className="hint">
-              Cette information permet d'inclure les structures en societe dans la comparaison.
+              Cette information permet d'inclure les structures en société dans la comparaison.
+            </span>
+          </div>
+        )}
+
+        {state.envisage_associes === true && (
+          <div className="field field-indent">
+            <label>Capital social envisagé</label>
+            <div className="input-suffix-wrap">
+              <input
+                type="number"
+                min="0"
+                placeholder="ex. 1 000"
+                value={state.capital_social}
+                onChange={(e) => onChange({ capital_social: e.target.value })}
+              />
+              <span className="input-suffix">€</span>
+            </div>
+            <span className="hint">
+              Montant du capital que vous apportez à la société (peut être symbolique : 1 €).
             </span>
           </div>
         )}
 
         {shouldShow("tva_question", state) && (
           <div className="field">
-            <label>Etes-vous deja soumis a la TVA ?</label>
-            <div className="toggle-group">
+            <label>Facturez-vous la TVA à vos clients ?</label>
+            <span className="hint">
+              Si votre chiffre d'affaires annuel est inférieur à un certain seuil (franchise en
+              base), vous n'êtes pas obligé de facturer la TVA. C'est le cas de la plupart des
+              indépendants qui débutent.
+            </span>
+            <div className="toggle-group toggle-group-stack-mobile">
               <button
                 type="button"
                 className={`toggle-btn ${state.tva_deja_applicable === true ? "active" : ""}`}
                 onClick={() => onChange({ tva_deja_applicable: true })}
               >
-                Oui
+                Oui, je facture la TVA
               </button>
               <button
                 type="button"
                 className={`toggle-btn ${state.tva_deja_applicable === false ? "active" : ""}`}
                 onClick={() => onChange({ tva_deja_applicable: false })}
               >
-                Non / Franchise de TVA
+                Non, je suis en franchise de TVA
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${state.tva_deja_applicable === null ? "active" : ""}`}
+                onClick={() => onChange({ tva_deja_applicable: null })}
+              >
+                Je ne sais pas
               </button>
             </div>
-            <span className="hint">
-              La TVA n'est demandee que si vous exercez deja etes potentiellement deja assujetti.
-            </span>
+
+            {state.tva_deja_applicable === null && tvaProbable !== null && (
+              <div className="field-info">
+                D'après votre CA déclaré, vous êtes probablement{" "}
+                <strong>{tvaProbable ? "assujetti à la TVA" : "en franchise de TVA"}</strong>.
+                Vous pouvez laisser cette option, le simulateur l'estimera automatiquement.
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -42,6 +42,26 @@
   animation: fade-up 0.25s ease both;
 }
 
+.wizard-resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.wizard-resume-banner p {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.wizard-resume-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -72,6 +92,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .wizard-footer-right {
@@ -90,4 +112,12 @@
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+@media (max-width: 640px) {
+  .wizard-resume-banner,
+  .wizard-footer-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

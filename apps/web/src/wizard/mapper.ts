@@ -7,6 +7,7 @@ import type {
   SousSegmentActivite,
   UserInput,
 } from "@wymby/types";
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import { resolveZoneFromCodePostal } from "../data/zones_cp.js";
 import type { WizardState } from "./types.js";
 
@@ -72,9 +73,12 @@ function mapSecteurConventionnel(
 
 function getDateCreation(state: WizardState): string | undefined {
   if (state.est_deja_en_activite === true && state.annee_debut_activite) {
+    if (state.mois_debut_activite) {
+      return `${state.annee_debut_activite}-${state.mois_debut_activite}-01`;
+    }
     return `${state.annee_debut_activite}-01-01`;
   }
-  if (state.est_creation === true) {
+  if (state.est_deja_en_activite === false) {
     return "2026-01-01";
   }
   return undefined;
@@ -86,21 +90,45 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
   const chargesMateriel = parseNum(state.charges_materiel ?? "") ?? 0;
   const chargesPersonnel = parseNum(state.charges_personnel ?? "") ?? 0;
   const chargesAutres = parseNum(state.charges_autres ?? "") ?? 0;
-  const autresRevenus = state.a_autres_revenus ? parseNum(state.autres_revenus_foyer) : 0;
-  const rfr = state.connait_rfr ? parseNum(state.rfr_n2) : undefined;
+  const chargesRepas = parseNum(state.charges_repas ?? "") ?? 0;
+  const chargesTransport = parseNum(state.charges_deplacement_transport ?? "") ?? 0;
+  const chargesTelecom = parseNum(state.charges_telecom ?? "") ?? 0;
+  const chargesRcPro = parseNum(state.charges_rc_pro ?? "") ?? 0;
+  const chargesCotisationsPro = parseNum(state.charges_cotisations_pro ?? "") ?? 0;
+  const amortInformatique = parseNum(state.amort_informatique ?? "") ?? 0;
+  const amortVehicule = parseNum(state.amort_vehicule ?? "") ?? 0;
+  const amortMobilier = parseNum(state.amort_mobilier ?? "") ?? 0;
+  const amortLogiciels = parseNum(state.amort_logiciels ?? "") ?? 0;
+  const autresRevenus =
+    state.a_autres_revenus === false
+      ? 0
+      : state.a_autres_revenus === true
+        ? (parseNum(state.autres_revenus_foyer) ?? undefined)
+        : undefined;
+  const rfr =
+    state.avait_revenus_n2 === false
+      ? 0
+      : state.connait_rfr === true
+        ? parseNum(state.rfr_n2)
+        : undefined;
   const droitsAre = state.percoit_chomage ? parseNum(state.droits_are_restants) : undefined;
   const nbParts = partsFromSituation(state);
   const zoneResolue = resolveZoneFromCodePostal(state.code_postal ?? "");
   const zone = zoneResolue !== "aucune" ? zoneResolue : undefined;
   const secteurConventionnel = mapSecteurConventionnel(state.secteur_conventionnel);
 
-  const SEUIL_AMORTISSEMENT_MATERIEL = 500;
+  const SEUIL_AMORTISSEMENT_MATERIEL = FISCAL_PARAMS_2026.comptabilite.CFG_SEUIL_IMMOBILISATION_MATERIEL_MIN;
   const materielAmortissable =
     chargesMateriel > SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0;
   const chargesCourantes =
     chargesLocaux +
     chargesPersonnel +
     chargesAutres +
+    chargesRepas +
+    chargesTransport +
+    chargesTelecom +
+    chargesRcPro +
+    chargesCotisationsPro +
     (chargesMateriel <= SEUIL_AMORTISSEMENT_MATERIEL ? chargesMateriel : 0);
 
   const chargesTotal =
@@ -110,12 +138,24 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
         ? (parseNum(state.charges_annuelles) ?? 0)
         : 0;
 
-  const amortissementsTotal =
-    materielAmortissable > 0
-      ? materielAmortissable
-      : state.a_des_amortissements
-        ? (parseNum(state.amortissements_annuels) ?? 0)
-        : undefined;
+  const amortissementsDetailTotal =
+    amortInformatique +
+    amortVehicule +
+    amortMobilier +
+    amortLogiciels;
+
+  const amortissementsTotal = (() => {
+    if (amortissementsDetailTotal > 0) {
+      return amortissementsDetailTotal + materielAmortissable;
+    }
+    if (materielAmortissable > 0) {
+      return materielAmortissable;
+    }
+    if (state.a_des_amortissements) {
+      return parseNum(state.amortissements_annuels) ?? 0;
+    }
+    return undefined;
+  })();
 
   return {
     ANNEE_SIMULATION: 2026,
@@ -135,9 +175,9 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
     RFR_N_2_UTILISATEUR: rfr,
     TVA_DEJA_APPLICABLE: state.tva_deja_applicable ?? undefined,
     DATE_CREATION_ACTIVITE: getDateCreation(state),
-    EST_CREATEUR_REPRENEUR: state.est_creation ?? undefined,
-    ACRE_DEMANDEE: state.est_creation ?? undefined,
-    EST_ELIGIBLE_ACRE_DECLARATIF: state.est_creation ?? undefined,
+    EST_CREATEUR_REPRENEUR: state.est_deja_en_activite === null ? undefined : !state.est_deja_en_activite,
+    ACRE_DEMANDEE: state.est_deja_en_activite === null ? undefined : !state.est_deja_en_activite,
+    EST_ELIGIBLE_ACRE_DECLARATIF: state.est_deja_en_activite === null ? undefined : !state.est_deja_en_activite,
     ARCE_DEMANDEE: state.percoit_chomage ?? undefined,
     EST_BENEFICIAIRE_ARE: state.percoit_chomage ?? undefined,
     DROITS_ARE_RESTANTS: droitsAre,
@@ -150,6 +190,7 @@ export function mapWizardToUserInput(state: WizardState): UserInput {
     EST_CONVENTIONNE: state.secteur_conventionnel !== "" && state.secteur_conventionnel !== "3",
     EST_ELIGIBLE_AIDE_CPAM:
       state.secteur_conventionnel === "1" || state.secteur_conventionnel === "2_optam",
+    CAPITAL_SOCIAL: state.capital_social ? (parseNum(state.capital_social) ?? undefined) : undefined,
     NIVEAU_CERTITUDE_CA: state.certitude_ca,
     OPTION_VFL_DEMANDEE: rfr !== undefined,
   } as UserInput;

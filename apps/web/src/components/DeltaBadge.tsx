@@ -19,7 +19,7 @@ export function DeltaBadge({ value, label, showZero = false }: Props) {
   const sign = value > 0 ? "pos" : value < 0 ? "neg" : "zero";
 
   return (
-    <span className={`delta-badge delta-${sign}`} title={label}>
+    <span className={`delta-badge delta-${sign} text-numeric`} title={label}>
       {fmt(value)} €
     </span>
   );

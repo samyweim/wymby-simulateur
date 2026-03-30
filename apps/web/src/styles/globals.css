@@ -148,6 +148,11 @@ select {
   box-shadow: var(--shadow-card);
 }
 
+.text-numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -201,6 +206,21 @@ select {
   color: #fff;
 }
 .toggle-btn:not(.active):hover { background: var(--ardoise-light); }
+
+@media (max-width: 374px) {
+  .toggle-group {
+    flex-wrap: wrap;
+  }
+
+  .toggle-btn {
+    min-width: 100%;
+  }
+
+  .toggle-btn + .toggle-btn {
+    border-left: none;
+    border-top: 1.5px solid var(--border);
+  }
+}
 
 /* ── Radio card grid ─────────────────────────────────────────────────────────── */
 .radio-grid {

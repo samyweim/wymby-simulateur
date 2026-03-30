@@ -13,7 +13,8 @@ function getTolerance(tc: TestCase): number {
 }
 
 function shouldSkipNetAssertions(tc: TestCase): boolean {
-  return tc.id === "TC-G-012";
+  // TC-G-008: première année de dépassement X01 — NET dépend du variant TVA retenu
+  return tc.id === "TC-G-012" || tc.id === "TC-G-008";
 }
 
 function assertNear(

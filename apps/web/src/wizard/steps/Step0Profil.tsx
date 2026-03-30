@@ -11,17 +11,17 @@ const ACTIVITES = [
   {
     value: "prestation" as const,
     title: "Prestation de service",
-    desc: "Consulting, formation, IT, coaching, traduction, redaction…",
+    desc: "Consulting, formation, IT, coaching, traduction, rédaction…",
   },
   {
     value: "liberal_reglemente" as const,
-    title: "Profession liberale reglementee",
+    title: "Profession libérale réglementée",
     desc: "Avocat, architecte, expert-comptable, notaire, pharmacien…",
   },
   {
     value: "liberal_non_reglemente" as const,
-    title: "Profession liberale non reglementee",
-    desc: "Psychologue, coach, dieteticien, sophrologue, consultant RH…",
+    title: "Profession libérale non réglementée",
+    desc: "Psychologue, coach, diététicien, sophrologue, consultant RH…",
   },
   {
     value: "commerce" as const,
@@ -30,13 +30,13 @@ const ACTIVITES = [
   },
   {
     value: "sante_medecin" as const,
-    title: "Medecin",
-    desc: "Medecin generaliste ou specialiste — secteur 1, 2 ou 3.",
+    title: "Médecin",
+    desc: "Médecin généraliste ou spécialiste, en secteur 1, 2 ou 3.",
   },
   {
     value: "sante_paramedicale" as const,
-    title: "Paramedical / Sante",
-    desc: "Kinesitherapeute, infirmier, orthophoniste, dentiste, sage-femme…",
+    title: "Paramédical / Santé",
+    desc: "Kinésithérapeute, infirmier, orthophoniste, dentiste, sage-femme…",
   },
   {
     value: "artiste" as const,
@@ -45,22 +45,39 @@ const ACTIVITES = [
   },
   {
     value: "location" as const,
-    title: "Location meublee",
-    desc: "LMNP ou LMP — appartement, meuble de tourisme, colocation…",
+    title: "Location meublée",
+    desc: "LMNP ou LMP, appartement, meublé de tourisme, colocation…",
   },
 ] as const;
+
+const MONTHS = [
+  { value: "01", label: "Janvier" },
+  { value: "02", label: "Février" },
+  { value: "03", label: "Mars" },
+  { value: "04", label: "Avril" },
+  { value: "05", label: "Mai" },
+  { value: "06", label: "Juin" },
+  { value: "07", label: "Juillet" },
+  { value: "08", label: "Août" },
+  { value: "09", label: "Septembre" },
+  { value: "10", label: "Octobre" },
+  { value: "11", label: "Novembre" },
+  { value: "12", label: "Décembre" },
+] as const;
+
+const YEARS = Array.from({ length: 12 }, (_, index) => String(2026 - index));
 
 export function Step0Profil({ state, onChange }: Props) {
   return (
     <div className="step">
       <div className="step-header">
-        <h2>Votre activite</h2>
-        <p>Quelques informations pour cibler les regimes qui vous correspondent.</p>
+        <h2>Votre activité</h2>
+        <p>Quelques informations pour cibler les régimes qui vous correspondent.</p>
       </div>
 
       <div className="step-fields">
         <div className="field">
-          <label>Quel type d'activite exercez-vous ?</label>
+          <label>Quel type d'activité exercez-vous ?</label>
           <div className="radio-grid">
             {ACTIVITES.map((a) => (
               <label className="radio-card" key={a.value}>
@@ -94,22 +111,22 @@ export function Step0Profil({ state, onChange }: Props) {
                 {
                   value: "1",
                   title: "Secteur 1",
-                  desc: "Honoraires opposables — aide CPAM maximale",
+                  desc: "Honoraires opposables, aide CPAM maximale",
                 },
                 {
                   value: "2_optam",
                   title: "Secteur 2 OPTAM",
-                  desc: "Depassements moderes — aide CPAM partielle",
+                  desc: "Dépassements modérés, aide CPAM partielle",
                 },
                 {
                   value: "2_non_optam",
                   title: "Secteur 2 (sans OPTAM)",
-                  desc: "Depassements libres — cotisations taux plein",
+                  desc: "Dépassements libres, cotisations au taux plein",
                 },
                 {
                   value: "3",
-                  title: "Secteur 3 / Non conventionne",
-                  desc: "Hors convention Assurance Maladie — tarifs entierement libres",
+                  title: "Secteur 3 / Non conventionné",
+                  desc: "Hors convention Assurance Maladie, tarifs entièrement libres",
                 },
               ].map((s) => (
                 <label className="radio-card" key={s.value}>
@@ -134,14 +151,14 @@ export function Step0Profil({ state, onChange }: Props) {
 
         {shouldShow("secteur_sante", state) && (
           <div className="field-notice">
-            Les regimes specifiques au secteur sante (cotisations CPAM, ASV, secteurs
-            conventionnels) sont en cours d'integration. La simulation integre les regimes
-            generaux en attendant les calculateurs sectoriels complets.
+            Les régimes spécifiques au secteur santé (cotisations CPAM, ASV, secteurs
+            conventionnels) sont en cours d’intégration. La simulation utilise encore les
+            régimes généraux en attendant les calculateurs sectoriels complets.
           </div>
         )}
 
         <div className="field">
-          <label>Exercez-vous deja cette activite ?</label>
+          <label>Exercez-vous déjà cette activité ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -149,12 +166,12 @@ export function Step0Profil({ state, onChange }: Props) {
               onClick={() =>
                 onChange({
                   est_deja_en_activite: false,
+                  mois_debut_activite: "",
                   annee_debut_activite: "",
-                  est_creation: true,
                 })
               }
             >
-              Non, je demarre
+              Non, je démarre
             </button>
             <button
               type="button"
@@ -162,23 +179,41 @@ export function Step0Profil({ state, onChange }: Props) {
               onClick={() =>
                 onChange({
                   est_deja_en_activite: true,
-                  est_creation: false,
                 })
               }
             >
               Oui, depuis…
             </button>
           </div>
+
           {state.est_deja_en_activite && (
-            <input
-              type="number"
-              placeholder="Annee de debut (ex. 2022)"
-              min={2000}
-              max={2026}
-              value={state.annee_debut_activite}
-              onChange={(e) => onChange({ annee_debut_activite: e.target.value })}
-              style={{ marginTop: "0.5rem", width: "12rem" }}
-            />
+            <div className="start-date-row">
+              <span className="start-date-label">Depuis :</span>
+              <div className="start-date-selects">
+                <select
+                  value={state.mois_debut_activite}
+                  onChange={(e) => onChange({ mois_debut_activite: e.target.value })}
+                >
+                  <option value="">Mois</option>
+                  {MONTHS.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={state.annee_debut_activite}
+                  onChange={(e) => onChange({ annee_debut_activite: e.target.value })}
+                >
+                  <option value="">Année</option>
+                  {YEARS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -17,6 +17,7 @@ type FP = typeof FiscalParamsType;
 
 export interface FiltreExclusionResult {
   basculement_reel_oblige: boolean;
+  premiere_annee_depassement: boolean;
   tva_collectee_obligatoire: boolean;
   vfl_exclu: boolean;
   puma_applicable: boolean;
@@ -37,32 +38,38 @@ export function appliquerFiltresExclusion(
   const motifs: Record<string, string> = {};
 
   // ── X01 : Dépassement durable des seuils micro ────────────────────────────
+  // Règle fiscale : bascule réel obligatoire si CA N > seuil ET CA N-1 > seuil.
+  // Un seul dépassement ne suffit pas — la première année est tolérée.
   let basculement_reel_oblige = false;
+  let premiere_annee_depassement = false;
   {
-    const caN1 = input.ANCIENNETE_ACTIVITE !== undefined
-      ? undefined
-      : undefined; // CA N-1 non disponible directement
-
-    // On vérifie si CA N-1 et CA N-2 dépassent tous les deux les seuils micro
-    // Si l'information n'est pas disponible, on ne peut pas appliquer X01 automatiquement
     const seuil = _getSeuilMicroApplicable(input, params);
+    const caN1 = input.CA_N1_ANTERIEUR;
 
-    if (
-      qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO &&
-      norm.CA_HT_RETENU > seuil
-    ) {
-      // Le CA actuel dépasse le seuil micro
-      // Si N-1 et N-2 sont fournis et dépassent aussi → X01 confirmé
-      // Sinon → alerte mais pas d'exclusion automatique
-      basculement_reel_oblige = true;
-      motifs["X01"] =
-        `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro applicable (${seuil} €). ` +
-        "Bascule en régime réel obligatoire (filtre X01).";
+    if (qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO && norm.CA_HT_RETENU > seuil) {
+      const caN1DepasseSeuil = caN1 !== undefined && caN1 > seuil;
+
+      if (caN1DepasseSeuil) {
+        // Deux années consécutives de dépassement → bascule réel confirmée
+        basculement_reel_oblige = true;
+        motifs["X01"] =
+          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la deuxième ` +
+          "année consécutive. Bascule en régime réel obligatoire (filtre X01).";
+      } else {
+        // Première année de dépassement ou CA N-1 inconnu → tolérance
+        premiere_annee_depassement = true;
+        motifs["X01_PREMIERE_ANNEE"] =
+          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la ` +
+          "première fois. Régime micro maintenu jusqu'au 31/12/N. " +
+          "Bascule réel obligatoire à partir du 01/01/N+1.";
+      }
     }
 
     logger.calc(3, "Filtre X01", "basculement_reel_oblige", basculement_reel_oblige, {
       CA_HT: norm.CA_HT_RETENU,
       seuil_micro: seuil,
+      CA_N1: caN1,
+      premiere_annee_depassement,
     });
   }
 
@@ -108,6 +115,7 @@ export function appliquerFiltresExclusion(
 
   return {
     basculement_reel_oblige,
+    premiere_annee_depassement,
     tva_collectee_obligatoire,
     vfl_exclu,
     puma_applicable,
@@ -131,12 +139,12 @@ export function filtrerScenariosParExclusion(
   for (const sc of scenarios) {
     const motifsExclusion: string[] = [];
 
-    // X01 : régimes micro exclus si bascule réel obligatoire
+    // X01 : régimes micro exclus si bascule réel obligatoire (deux années consécutives)
     if (
       filtres.basculement_reel_oblige &&
       _isMicroScenario(sc.base_id)
     ) {
-      motifsExclusion.push(filtres.motifs["X01"] ?? "Seuil micro dépassé");
+      motifsExclusion.push(filtres.motifs["X01"] ?? "Seuil micro dépassé (deux années consécutives)");
     }
 
     // X02 : TVA franchise exclue si dépassement TVA
@@ -166,7 +174,21 @@ export function filtrerScenariosParExclusion(
         motif: motifsExclusion.join(" | "),
       });
     } else {
-      possibles.push(sc);
+      // X01 première année : micro maintenu mais marqué dernier exercice possible
+      if (filtres.premiere_annee_depassement && _isMicroScenario(sc.base_id)) {
+        possibles.push({
+          ...sc,
+          options_supplementaires: [
+            ...sc.options_supplementaires,
+            "DERNIER_EXERCICE_MICRO_POSSIBLE",
+          ],
+        });
+        logger.warn(3, "Scénario micro — dernier exercice possible (première année de dépassement)", {
+          scenario_id: sc.scenario_id,
+        });
+      } else {
+        possibles.push(sc);
+      }
     }
   }
 

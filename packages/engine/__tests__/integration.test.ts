@@ -183,20 +183,23 @@ describe("Cas limite — CA exactement au seuil micro BIC service", () => {
     expect(microService).toBeDefined();
   });
 
-  it("CA = seuil + 1 : micro exclu (X01 filtrage)", () => {
+  it("CA = seuil + 1 : première année de dépassement — micro maintenu avec avertissement (X01 tolérance)", () => {
     const [output] = runEngineWithLogs(
       baseInput({ CA_ENCAISSE_UTILISATEUR: SEUIL + 1 })
     );
-    // Micro BIC SERVICE doit être exclu ou absent des calculs
+    // Règle fiscale : la première année de dépassement est tolérée.
+    // Le scénario micro doit être calculé (non exclu).
     const microService = output.calculs_par_scenario.find(
       (c) => c.base_id === "G_MBIC_SERVICE"
     );
-    // Vérifie soit l'absence dans calculs, soit la présence dans exclus
-    const microExclu = output.scenarios_exclus.some(
-      (e) => e.scenario_id.includes("G_MBIC_SERVICE")
+    expect(microService).toBeDefined();
+    // Le flag FLAG_PREMIERE_ANNEE_DEPASSEMENT doit être levé
+    expect(output.qualification?.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).toBe(true);
+    // L'avertissement global signale la première année de dépassement
+    const hasAvert = output.qualite_resultat.avertissements.some(
+      (a) => a.includes("première fois") || a.includes("première année") || a.includes("X01_PREMIERE_ANNEE")
     );
-    // Au moins l'une des deux conditions doit être vraie
-    expect(!microService || microExclu).toBe(true);
+    expect(hasAvert).toBe(true);
   });
 });
 
