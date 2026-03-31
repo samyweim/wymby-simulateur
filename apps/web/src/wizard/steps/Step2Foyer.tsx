@@ -198,6 +198,9 @@ export function Step2Foyer({ state, onChange }: Props) {
                   />
                   <span className="input-suffix">EUR</span>
                 </div>
+                <span className="hint">
+                  Ou trouver cette valeur : avis d'imposition 2024 (revenus 2023), ligne "Revenu fiscal de reference".
+                </span>
                 {rfr > 0 && nbParts > 0 && (
                   <div
                     className={`field-validation ${

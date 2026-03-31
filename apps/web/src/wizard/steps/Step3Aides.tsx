@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import type { WizardState } from "../types.js";
 import { resolveZoneFromCodePostal } from "../../data/zones_cp.js";
@@ -54,6 +55,13 @@ export function Step3Aides({ state, onChange }: Props) {
   const zone = state.code_postal.length === 5 ? resolveZoneFromCodePostal(state.code_postal) : "aucune";
   const arceEstimate = droitsAre * FISCAL_PARAMS_2026.aides.CFG_TAUX_ARCE;
   const showTresorerieObjective = shouldAskTresorerieObjective(state);
+  const isExonereeSante = isTvaExonereeSante(state);
+
+  useEffect(() => {
+    if (isExonereeSante && state.tva_deja_applicable !== false) {
+      onChange({ tva_deja_applicable: false });
+    }
+  }, [isExonereeSante]);
 
   return (
     <div className="step">
@@ -147,7 +155,7 @@ export function Step3Aides({ state, onChange }: Props) {
 
         {shouldShow("envisage_associes", state) && (
           <div className="field">
-            <label>Envisagez-vous d'avoir des associes ou des salaries ?</label>
+            <label>Souhaitez-vous comparer avec une structure en societe (SASU, EURL) ?</label>
             <div className="toggle-group">
               <button
                 type="button"
@@ -161,16 +169,16 @@ export function Step3Aides({ state, onChange }: Props) {
                 className={`toggle-btn ${state.envisage_associes === false ? "active" : ""}`}
                 onClick={() => onChange({ envisage_associes: false })}
               >
-                Non / Pas encore
+                Non, je reste en entreprise individuelle
               </button>
             </div>
             <span className="hint">
-              Cette information permet d'inclure les structures en societe dans la comparaison.
+              Si vous travaillez seul et ne prevoyez pas de creer une societe, repondez Non. Une societe peut etre avantageuse a partir d'un certain niveau de revenus — WYMBY le detecte automatiquement si vous repondez Oui.
             </span>
           </div>
         )}
 
-        {shouldShow("envisage_associes", state) && (
+        {shouldShow("envisage_associes", state) && state.envisage_associes === true && (
           <div className="field field-indent">
             <label>Capital social envisage</label>
             <div className="input-suffix-wrap">
@@ -193,7 +201,6 @@ export function Step3Aides({ state, onChange }: Props) {
           <div className="field field-substep">
             <div className="field-substep-head">
               <div>
-                <span className="field-substep-kicker">Classement des resultats</span>
                 <label>Quelle est votre priorite financiere ?</label>
                 <p className="field-substep-intro">
                   Cette preference aide a mieux classer les structures IS si elles
@@ -236,12 +243,14 @@ export function Step3Aides({ state, onChange }: Props) {
         )}
 
         {shouldShow("tva_question", state) && (
-          <div className="field field-split">
-            <div className="field-main">
+          isExonereeSante ? (
+            <div className="field">
               <label>Facturez-vous la TVA a vos clients ?</label>
+              <div className="field-validation field-validation-positive">
+                <strong>Exoneree de TVA de plein droit</strong> — professions de sante reglementees, vous ne facturez pas la TVA a vos patients.
+              </div>
               <span className="hint">
-                Si votre chiffre d'affaires annuel est inferieur a un certain seuil (franchise en
-                base), vous n'etes pas oblige de facturer la TVA.
+                Vous pouvez modifier cette reponse si votre situation est atypique, mais c'est deconseille dans la grande majorite des cas.
               </span>
               <div className="toggle-group toggle-group-stack-mobile">
                 <button
@@ -256,42 +265,51 @@ export function Step3Aides({ state, onChange }: Props) {
                   className={`toggle-btn ${state.tva_deja_applicable === false ? "active" : ""}`}
                   onClick={() => onChange({ tva_deja_applicable: false })}
                 >
-                  Non, je suis en franchise de TVA
-                </button>
-                <button
-                  type="button"
-                  className={`toggle-btn ${state.tva_deja_applicable === null ? "active" : ""}`}
-                  onClick={() => onChange({ tva_deja_applicable: null })}
-                >
-                  Je ne sais pas
+                  Non, je suis exoneree de TVA
                 </button>
               </div>
-
-              {state.tva_deja_applicable === null && caNum > 0 && (
-                <div className="field-info">
-                  {isTvaExonereeSante(state) ? (
-                    <>
-                      Vous pouvez laisser cette option telle quelle : le simulateur traitera
-                      l'activite comme <strong>exoneree de TVA</strong>.
-                    </>
-                  ) : (
-                    <>
-                      Vous pouvez laisser cette option sur "Je ne sais pas" : le simulateur
-                      l'estimera a partir de votre CA et de votre activite.
-                    </>
-                  )}
-                </div>
-              )}
             </div>
-            {((isTvaExonereeSante(state) || (!!tvaSeuils && caNum > 0))) && (
-              <div className="field-side">
-                {isTvaExonereeSante(state) && (
-                  <div className="field-validation field-validation-positive">
-                    Activite <strong>exoneree de TVA</strong>.
+          ) : (
+            <div className="field field-split">
+              <div className="field-main">
+                <label>Facturez-vous la TVA a vos clients ?</label>
+                <span className="hint">
+                  Si votre chiffre d'affaires annuel est inferieur a un certain seuil (franchise en
+                  base), vous n'etes pas oblige de facturer la TVA.
+                </span>
+                <div className="toggle-group toggle-group-stack-mobile">
+                  <button
+                    type="button"
+                    className={`toggle-btn ${state.tva_deja_applicable === true ? "active" : ""}`}
+                    onClick={() => onChange({ tva_deja_applicable: true })}
+                  >
+                    Oui, je facture la TVA
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${state.tva_deja_applicable === false ? "active" : ""}`}
+                    onClick={() => onChange({ tva_deja_applicable: false })}
+                  >
+                    Non, je suis en franchise de TVA
+                  </button>
+                  <button
+                    type="button"
+                    className={`toggle-btn ${state.tva_deja_applicable === null ? "active" : ""}`}
+                    onClick={() => onChange({ tva_deja_applicable: null })}
+                  >
+                    Je ne sais pas
+                  </button>
+                </div>
+
+                {state.tva_deja_applicable === null && caNum > 0 && (
+                  <div className="field-info">
+                    Vous pouvez laisser cette option sur "Je ne sais pas" : le simulateur
+                    l'estimera a partir de votre CA et de votre activite.
                   </div>
                 )}
-
-                {!isTvaExonereeSante(state) && tvaSeuils && caNum > 0 && (
+              </div>
+              {!!tvaSeuils && caNum > 0 && (
+                <div className="field-side">
                   <div
                     className={`field-validation ${
                       caNum < tvaSeuils.franchise
@@ -315,10 +333,10 @@ export function Step3Aides({ state, onChange }: Props) {
                       </>
                     )}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
     </div>

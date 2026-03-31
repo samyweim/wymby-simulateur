@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EngineOutput, EngineLog } from "@wymby/types";
+import type { EngineOutput, UserInput } from "@wymby/types";
 import { WizardShell } from "./wizard/WizardShell.js";
 import { ResultsPage } from "./results/ResultsPage.js";
 import { FiscalDecisionMap } from "./presentation/FiscalDecisionMap.js";
@@ -15,7 +15,7 @@ export default function App() {
         }
       : { view: null, pathname: "", hash: "" };
   const [output, setOutput] = useState<EngineOutput | null>(null);
-  const [debugLogs, setDebugLogs] = useState<EngineLog[]>([]);
+  const [rawInput, setRawInput] = useState<UserInput | null>(null);
 
   if (locationInfo.view === "organigramme") {
     return <FiscalDecisionMap />;
@@ -36,17 +36,17 @@ export default function App() {
     return (
       <ResultsPage
         output={output}
-        debugLogs={debugLogs}
-        onRestart={() => { setOutput(null); setDebugLogs([]); }}
+        rawInput={rawInput ?? undefined}
+        onRestart={() => { setOutput(null); setRawInput(null); }}
       />
     );
   }
 
   return (
     <WizardShell
-      onComplete={(out, logs) => {
+      onComplete={(out, _logs, input) => {
         setOutput(out);
-        setDebugLogs(logs);
+        setRawInput(input);
       }}
     />
   );

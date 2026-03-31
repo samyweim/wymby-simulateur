@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
-import type { EngineOutput, EngineLog, DetailCalculScenario, IntermediairesCalcul, UserInput } from "@wymby/types";
+import type { EngineOutput, DetailCalculScenario, IntermediairesCalcul, UserInput } from "@wymby/types";
 import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import { runEngineWithLogs } from "@wymby/engine";
 import { DebugPanel } from "../components/DebugPanel.js";
+import { sendLogsToTerminal } from "../lib/terminal-logger.js";
 import { TEST_CASES, type TestCase } from "@test-cases";
 
 type RunResult = {
   testCase: TestCase;
   output: EngineOutput;
-  logs: EngineLog[];
   scenario?: DetailCalculScenario;
   checks: Array<{
     metric: string;
@@ -36,6 +36,8 @@ function getTolerance(testCase: TestCase, metric: string, expectedValue: number)
 
 function evaluateCase(testCase: TestCase): RunResult {
   const [output, logs] = runEngineWithLogs(testCase.inputs as UserInput, FISCAL_PARAMS_2026);
+  void sendLogsToTerminal(logs);
+
   const scenario = output.calculs_par_scenario.find((entry) => entry.base_id === testCase.scenario_base);
   const checks: RunResult["checks"] = [];
 
@@ -72,7 +74,7 @@ function evaluateCase(testCase: TestCase): RunResult {
       (scenario?.niveau_fiabilite ?? "absent"),
   });
 
-  return { testCase, output, logs, scenario, checks };
+  return { testCase, output, scenario, checks };
 }
 
 export function DebugPage() {
@@ -184,7 +186,7 @@ export function DebugPage() {
             </div>
           </details>
 
-          <DebugPanel inputs={singleRun.output.inputs_normalises} logs={singleRun.logs} />
+          <DebugPanel inputs={singleRun.output.inputs_normalises} output={singleRun.output} />
         </section>
       )}
 

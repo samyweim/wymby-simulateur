@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { EngineOutput, EngineLog } from "@wymby/types";
+import type { EngineOutput, EngineLog, UserInput } from "@wymby/types";
 import { runEngineWithLogs } from "@wymby/engine";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { CalculSkeleton } from "../components/CalculSkeleton.js";
@@ -9,11 +9,12 @@ import { Step2Foyer } from "./steps/Step2Foyer.js";
 import { Step3Aides } from "./steps/Step3Aides.js";
 import { mapWizardToUserInput } from "./mapper.js";
 import { WIZARD_INITIAL_STATE } from "./types.js";
+import { sendLogsToTerminal } from "../lib/terminal-logger.js";
 import type { WizardState } from "./types.js";
 import "./WizardShell.css";
 
 interface Props {
-  onComplete: (output: EngineOutput, logs: EngineLog[]) => void;
+  onComplete: (output: EngineOutput, logs: EngineLog[], rawInput: UserInput) => void;
 }
 
 const STEP_LABELS = ["Activité", "Revenus", "Situation", "Aides"];
@@ -126,8 +127,9 @@ export function WizardShell({ onComplete }: Props) {
       const input = mapWizardToUserInput(state);
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       const [output, logs] = runEngineWithLogs(input);
+      void sendLogsToTerminal(logs);
       sessionStorage.removeItem(STORAGE_KEY);
-      onComplete(output, logs);
+      onComplete(output, logs, input);
     } catch (e) {
       setError("Une erreur est survenue lors du calcul. " + String(e));
     } finally {

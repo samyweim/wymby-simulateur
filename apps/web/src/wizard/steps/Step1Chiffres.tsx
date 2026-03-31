@@ -581,7 +581,7 @@ export function Step1Chiffres({ state, onChange }: Props) {
         )}
 
         <div className="field">
-          <label>Avez-vous du materiel professionnel a amortir ?</label>
+          <label>Avez-vous achete du materiel couteux pour votre activite ?</label>
           <div className="toggle-group">
             <button
               type="button"
@@ -608,7 +608,7 @@ export function Step1Chiffres({ state, onChange }: Props) {
             </button>
           </div>
           <span className="hint">
-            Pertinent surtout pour les regimes reels ou les investissements materiels importants.
+            Ordinateur, vehicule, equipement professionnel au-dessus de 500 EUR — WYMBY calcule automatiquement l'amortissement.
           </span>
         </div>
 

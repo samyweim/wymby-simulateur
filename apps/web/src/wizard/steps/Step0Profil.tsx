@@ -10,38 +10,38 @@ interface Props {
 const ACTIVITES = [
   {
     value: "prestation" as const,
-    title: "BNC - conseil et prestations intellectuelles",
-    desc: "Consultant en gestion, formateur, developpeur, data scientist, coach, marketing, psychologie, bien-etre non reglemente...",
+    title: "Consultant, formateur, freelance intellectuel",
+    desc: "BNC — conseil, developpement, formation, coaching, data, marketing, psychologie non reglementee...",
   },
   {
     value: "liberal_reglemente" as const,
-    title: "BNC - profession liberale reglementee",
-    desc: "Avocat, architecte, expert-comptable, notaire, pharmacien...",
+    title: "Profession liberale reglementee",
+    desc: "BNC — avocat, architecte, expert-comptable, notaire, pharmacien...",
   },
   {
     value: "commerce" as const,
-    title: "BIC - commerce, artisanat et services commerciaux",
-    desc: "VTC, livreur, editeur SaaS, nettoyage, entretien, coiffure a domicile...",
+    title: "Commerce, artisanat et services",
+    desc: "BIC — VTC, livreur, editeur SaaS, nettoyage, coiffure a domicile...",
   },
   {
     value: "sante_medecin" as const,
     title: "Medecin",
-    desc: "BNC reglemente, exonere de TVA, PAMC. Secteur 1, 2 OPTAM, 2 sans OPTAM ou 3.",
+    desc: "BNC reglemente — PAMC, secteur 1 / 2 OPTAM / 2 sans OPTAM / 3",
   },
   {
     value: "sante_paramedicale" as const,
-    title: "Sante reglementee",
-    desc: "Infirmier liberal, kine, psychologue, orthophoniste, osteopathe...",
+    title: "Auxiliaire medical ou paramedical",
+    desc: "BNC reglemente — infirmier, kinesitherapeute, orthophoniste, sage-femme, psychologue...",
   },
   {
     value: "artiste" as const,
     title: "Artiste-auteur",
-    desc: "Auteur, musicien, plasticien, photographe, illustrateur...",
+    desc: "BNC ou T&S — auteur, compositeur, illustrateur, photographe d'art...",
   },
   {
     value: "location" as const,
-    title: "Location meublee",
-    desc: "LMNP ou LMP, appartement, meuble de tourisme, colocation...",
+    title: "Location meublee (LMNP / LMP)",
+    desc: "BIC — revenus locatifs meubles, courte ou longue duree",
   },
 ] as const;
 
@@ -307,36 +307,38 @@ export function Step0Profil({ state, onChange }: Props) {
           </div>
 
           {state.est_deja_en_activite && (
-            <div className="start-date-row">
-              <span className="start-date-label">Depuis :</span>
-              <div className="start-date-selects">
-                <select
-                  value={state.mois_debut_activite}
-                  onChange={(event) => onChange({ mois_debut_activite: event.target.value })}
-                >
-                  {MONTHS.map((month) => (
-                    <option key={month.value} value={month.value}>
-                      {month.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={state.annee_debut_activite}
-                  onChange={(event) => onChange({ annee_debut_activite: event.target.value })}
-                >
-                  <option value="">Annee</option>
-                  {YEARS.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+            <>
+              <div className="start-date-row">
+                <span className="start-date-label">Depuis :</span>
+                <div className="start-date-selects">
+                  <select
+                    value={state.mois_debut_activite}
+                    onChange={(event) => onChange({ mois_debut_activite: event.target.value })}
+                  >
+                    {MONTHS.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={state.annee_debut_activite}
+                    onChange={(event) => onChange({ annee_debut_activite: event.target.value })}
+                  >
+                    <option value="">Annee</option>
+                    {YEARS.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <span className="hint">
                 Si vous ne connaissez pas le mois exact, janvier est retenu par prudence pour
                 cristalliser les aides de creation.
               </span>
-            </div>
+            </>
           )}
         </div>
       </div>

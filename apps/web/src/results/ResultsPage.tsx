@@ -1,4 +1,4 @@
-import type { EngineLog, EngineOutput, DetailCalculScenario } from "@wymby/types";
+import type { EngineOutput, DetailCalculScenario, UserInput } from "@wymby/types";
 import { FISCAL_PARAMS_2026 } from "@wymby/config";
 import { FiabiliteBar } from "../components/FiabiliteBar.js";
 import { AlertBanner } from "../components/AlertBanner.js";
@@ -6,6 +6,7 @@ import { DebugPanel } from "../components/DebugPanel.js";
 import { CollapsibleSection } from "../components/CollapsibleSection.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { ScenarioCard } from "./ScenarioCard.js";
+import { RecommandationHero } from "./RecommandationHero.js";
 import { ComparaisonTable } from "./ComparaisonTable.js";
 import { PdfExportButton } from "./PdfExportButton.js";
 import { getScenarioLabel } from "../data/scenario-labels.js";
@@ -18,7 +19,7 @@ import "./ResultsPage.css";
 
 interface Props {
   output: EngineOutput;
-  debugLogs?: EngineLog[];
+  rawInput?: UserInput;
   onRestart: () => void;
 }
 
@@ -61,7 +62,11 @@ function getFiabiliteDescription(output: EngineOutput): string {
 
   if (missing.length === 0) {
     if (output.qualite_resultat.niveau_fiabilite === "estimation") {
-      return "Le calcul reste estimatif sur certains regimes specifiques, meme avec un foyer renseigne.";
+      const hasIS = output.calculs_par_scenario.some((s) => isStructureIS(s.base_id));
+      if (hasIS) {
+        return "Les structures IS (EURL, SASU) sont incluses : l'arbitrage salaire / dividendes est optimise par le moteur, mais reste une projection — le montant reel depend de vos decisions de gestion en cours d'annee.";
+      }
+      return "L'impot sur le revenu est calcule sur la base de vos revenus estimes. Le montant final peut varier si votre CA reel ou les revenus de votre foyer different en fin d'annee.";
     }
     if (output.qualite_resultat.niveau_fiabilite === "partiel") {
       return "Le calcul est partiel sur certains points reglementaires a confirmer.";
@@ -142,9 +147,7 @@ function buildRecommendationExplanation(output: EngineOutput): string | null {
 }
 
 function getScenarioFamily(baseId: string): ScenarioFamily {
-  if (baseId.startsWith("S_")) return "sante";
-  if (baseId.startsWith("A_")) return "artiste";
-  if (baseId.startsWith("I_")) return "immobilier";
+  // Les structures société sont vérifiées en premier (avant startsWith "S_")
   if (
     baseId === "G_EURL_IS" ||
     baseId === "G_EURL_IR" ||
@@ -155,6 +158,9 @@ function getScenarioFamily(baseId: string): ScenarioFamily {
   ) {
     return "societe";
   }
+  if (baseId.startsWith("S_")) return "sante";
+  if (baseId.startsWith("A_")) return "artiste";
+  if (baseId.startsWith("I_")) return "immobilier";
   if (baseId.includes("_BNC")) return "generaliste_bnc";
   if (baseId.includes("_BIC") || baseId.includes("_MBIC")) return "generaliste_bic";
   return "autre";
@@ -200,7 +206,7 @@ function isStructureIS(baseId: string): boolean {
   );
 }
 
-export function ResultsPage({ output, debugLogs, onRestart }: Props) {
+export function ResultsPage({ output, rawInput, onRestart }: Props) {
   const { calculs_par_scenario, comparaison, recommandation, qualite_resultat } = output;
   const sortedScenarios = comparaison.classement_net_apres_ir
     .map((id) => calculs_par_scenario.find((scenario) => scenario.scenario_id === id))
@@ -235,10 +241,13 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
   const referenceId = comparaison.scenario_reference_id;
   const isNewActivity = output.inputs_normalises.profil.est_nouvelle_activite ?? false;
 
+  // Recommandé et optimal : inclus dans le podium uniquement s'ils sont pertinents.
+  // Si le moteur recommande un scénario hors pertinence (ex: SELARL quand envisage_associes=false),
+  // il est exclu du podium — le remplissage depuis relevantScenarios prend le relais.
   const topCandidates = [
     orderedDisplayScenarios.find((scenario) => scenario.scenario_id === referenceId) ?? null,
-    orderedDisplayScenarios.find((scenario) => scenario.scenario_id === recommendedId) ?? null,
-    orderedDisplayScenarios.find((scenario) => scenario.scenario_id === optimalId) ?? null,
+    relevantScenarios.find((scenario) => scenario.scenario_id === recommendedId) ?? null,
+    relevantScenarios.find((scenario) => scenario.scenario_id === optimalId) ?? null,
   ].filter((scenario): scenario is DetailCalculScenario => scenario !== null);
 
   const topScenarioMap = new Map<string, DetailCalculScenario>();
@@ -354,6 +363,13 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
             score={qualite_resultat.score_fiabilite}
             description={getFiabiliteDescription(output)}
           />
+
+          {recommandation && (
+            <RecommandationHero
+              recommandation={recommandation}
+              recommandedScenario={recommendedScenario}
+            />
+          )}
 
           <section className="results-topfold">
             <div className="results-topfold-head">
@@ -503,8 +519,17 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
           </button>
         </div>
 
-        {isDebug && debugLogs !== undefined && (
-          <DebugPanel inputs={output.inputs_normalises} logs={debugLogs} />
+        {isDebug && (
+          <DebugPanel
+            inputs={output.inputs_normalises}
+            rawInput={rawInput}
+            output={output}
+            relevantScenarios={relevantScenarios}
+            lessRelevantScenarios={lessRelevantScenarios}
+            relevanceContext={relevanceContext}
+            topScenarioIds={topScenarioIds}
+            getFamily={getScenarioFamily}
+          />
         )}
       </div>
 
