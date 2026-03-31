@@ -315,10 +315,9 @@ export function calculerSociete(
   const COUT_TOTAL_SOCIAL_FISCAL =
     COTISATIONS_SOCIALES_NETTES + IR_ATTRIBUABLE_SCENARIO + IS_DU_SCENARIO + input.TVA_NETTE_DUE;
 
-  const AIDE_ARCE_TRESORERIE =
-    (input.droits_are_restants ?? 0) * params.aides.CFG_TAUX_ARCE;
-
-  const SUPER_NET = NET_APRES_IR + AIDE_ARCE_TRESORERIE;
+  // ARCE is injected later only for scenarios carrying BOOST_ARCE.
+  const AIDE_ARCE_TRESORERIE = 0;
+  const SUPER_NET = NET_APRES_IR;
 
   return {
     intermediaires: {

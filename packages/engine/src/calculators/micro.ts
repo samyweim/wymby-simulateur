@@ -179,11 +179,9 @@ export function calculerMicro(
   const COUT_TOTAL_SOCIAL_FISCAL =
     COTISATIONS_SOCIALES_NETTES + IR_ATTRIBUABLE_SCENARIO + input.TVA_NETTE_DUE;
 
-  // ARCE modélisée comme flux trésorerie externe
-  const AIDE_ARCE_TRESORERIE =
-    (input.droits_are_restants ?? 0) * params.aides.CFG_TAUX_ARCE;
-
-  const SUPER_NET = NET_APRES_IR + AIDE_ARCE_TRESORERIE;
+  // ARCE is injected later only when BOOST_ARCE is active on the scenario.
+  const AIDE_ARCE_TRESORERIE = 0;
+  const SUPER_NET = NET_APRES_IR;
 
   return {
     intermediaires: {

@@ -4,7 +4,7 @@
  * Chaque booster agit sur une assiette précise :
  * - B01 ZFRR / B02 ZFRR+ : agit sur RESULTAT_FISCAL (IS ou IR)
  * - B03 QPV/ZFU : agit sur RESULTAT_FISCAL avec proratisation CA zone
- * - B04 ACRE : agit sur COTISATIONS_SOCIALES_BRUTES
+ * - B04 ACRE : gérée dans les calculateurs, car l'assiette dépend du régime
  * - B05 ARCE : flux trésorerie externe à NET_APRES_IR (SUPER_NET uniquement)
  * - B06 ZIP/ZAC : aide forfaitaire ajoutée à SUPER_NET (Santé, V2)
  */
@@ -44,9 +44,10 @@ export function appliquerBoosters(
   for (const booster of boosters) {
     switch (booster) {
       case "BOOST_ACRE": {
-        const r = _appliquerACRE(cotisations_brutes, input, params);
-        reduction_cotisations += r.reduction;
-        if (r.avertissement) avertissements.push(r.avertissement);
+        // ACRE is computed in the calculators where the definitive social base is known.
+        void cotisations_brutes;
+        void input;
+        void params;
         break;
       }
 
@@ -112,31 +113,6 @@ export function appliquerBoosters(
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers boosters
 // ─────────────────────────────────────────────────────────────────────────────
-
-function _appliquerACRE(
-  cotisations_brutes: number,
-  input: UserInput,
-  params: FP
-): { reduction: number; avertissement?: string } {
-  const acreParams = params.aides.CFG_TAUX_REDUCTION_ACRE_MICRO;
-
-  // Déterminer le taux applicable selon la date (avant/après 01/07/2026)
-  const dateCreation = input.DATE_CREATION_ACTIVITE
-    ? new Date(input.DATE_CREATION_ACTIVITE)
-    : new Date();
-  const dateCharniere = new Date("2026-07-01");
-  const taux =
-    dateCreation < dateCharniere
-      ? acreParams.avant_01_07_2026
-      : acreParams.apres_01_07_2026;
-
-  const reduction = cotisations_brutes * taux;
-
-  return {
-    reduction,
-    avertissement: `ACRE appliquée : taux de réduction ${taux * 100} % sur cotisations brutes.`,
-  };
-}
 
 function _appliquerARCE(
   input: UserInput,

@@ -16,6 +16,7 @@ import "./ScenarioCard.css";
 interface Props {
   scenario: DetailCalculScenario;
   referenceBaseId?: DetailCalculScenario["base_id"];
+  isNewActivity?: boolean;
   isReference?: boolean;
   isRecommande?: boolean;
   isOptimal?: boolean;
@@ -102,6 +103,7 @@ function getDemarcheLabel(link?: string): string | null {
 export function ScenarioCard({
   scenario,
   referenceBaseId,
+  isNewActivity = false,
   isReference,
   isRecommande,
   isOptimal,
@@ -127,10 +129,15 @@ export function ScenarioCard({
   const complexityTone = getComplexityTone(complexity.score);
   const accessConfig = SCENARIO_ACCESS[scenario.base_id];
   const access = accessConfig
-    ? selectAccesRegime(accessConfig, referenceBaseId)
+    ? isNewActivity
+      ? accessConfig.general
+      : selectAccesRegime(accessConfig, referenceBaseId)
     : null;
   const professionnelBadge = getProfessionnelBadge(access?.professionnel_requis ?? null);
   const demarcheLabel = getDemarcheLabel(access?.lien_officiel);
+  const accessModeLabel = isNewActivity
+    ? "Inscription au regime"
+    : "Changement vers ce regime";
   const isMicro =
     inter.ABATTEMENT_FORFAITAIRE !== undefined &&
     inter.ABATTEMENT_FORFAITAIRE > 0 &&
@@ -273,6 +280,9 @@ export function ScenarioCard({
 
           {showAccessDetail && (
             <div className="sc-access-detail" role="region" aria-label="Comment y acceder">
+              <p className="sc-access-meta">
+                <strong>Parcours :</strong> {accessModeLabel}
+              </p>
               {demarcheLabel && (
                 <p className="sc-access-meta">
                   <strong>Demarche :</strong> {demarcheLabel}

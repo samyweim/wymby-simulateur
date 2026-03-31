@@ -171,7 +171,7 @@ function _runEngineInternal(
   logger.info(7, "Calculs effectués", { detail: { nb_calcules: calculs.length } });
 
   // ── Étape 10 : Comparaison ────────────────────────────────────────────────
-  const scenario_reference_id = determinerScenarioReference(calculs);
+  const scenario_reference_id = determinerScenarioReference(calculs, input);
 
   if (!scenario_reference_id && calculs.length > 0) {
     avertissements_globaux.push(

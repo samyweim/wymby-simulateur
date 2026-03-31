@@ -61,8 +61,14 @@ export function appliquerFiltresExclusion(
             ? "pour la deuxième année consécutive."
             : `(plus de 2× le seuil — tolérance première année inapplicable).`) +
           " Bascule en régime réel obligatoire (filtre X01).";
+      } else if (caN1 === undefined) {
+        basculement_reel_oblige = true;
+        motifs["X01"] =
+          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) ` +
+          "mais le CA N-1 n'est pas renseigné. Maintien micro impossible à confirmer : " +
+          "régime micro non retenu par prudence.";
       } else {
-        // First year of exceeding the threshold, or CA N-1 unknown but marginal overshoot
+        // First year of exceeding the threshold, explicitly confirmed by CA N-1 under threshold
         premiere_annee_depassement = true;
         motifs["X01_PREMIERE_ANNEE"] =
           `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la ` +

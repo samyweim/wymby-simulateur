@@ -12,7 +12,6 @@ import { getScenarioLabel } from "../data/scenario-labels.js";
 import { MicroSeuilProximite } from "../components/MicroSeuilProximite.js";
 import { resolveDisplayMessage } from "../data/avertissement-messages.js";
 import {
-  groupSimilarScenarios,
   isRelevantForProfile,
 } from "../data/scenario-relevance.js";
 import "./ResultsPage.css";
@@ -230,18 +229,37 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
   const lessRelevantScenarios = uniqueScenarios.filter(
     (scenario) => !isRelevantForProfile(scenario, relevanceContext)
   );
-  const groupedScenarios = groupSimilarScenarios(relevantScenarios);
-  const podiumScenarioGroups = groupedScenarios.slice(0, 3);
-  const nextScenarioGroups = groupedScenarios.slice(3, 8);
-  const nextScenarios = nextScenarioGroups.map((group) => group.primary);
-  const displayScenarioCount = groupedScenarios.length;
-  const podiumScenarioIds = podiumScenarioGroups.map((group) => group.primary.scenario_id);
+  const orderedDisplayScenarios = [...relevantScenarios, ...lessRelevantScenarios];
+  const recommendedId = recommandation?.scenario_recommande_id ?? null;
+  const optimalId = comparaison.classement_net_apres_ir[0] ?? null;
+  const referenceId = comparaison.scenario_reference_id;
+  const isNewActivity = output.inputs_normalises.profil.est_nouvelle_activite ?? false;
+
+  const topCandidates = [
+    orderedDisplayScenarios.find((scenario) => scenario.scenario_id === referenceId) ?? null,
+    orderedDisplayScenarios.find((scenario) => scenario.scenario_id === recommendedId) ?? null,
+    orderedDisplayScenarios.find((scenario) => scenario.scenario_id === optimalId) ?? null,
+  ].filter((scenario): scenario is DetailCalculScenario => scenario !== null);
+
+  const topScenarioMap = new Map<string, DetailCalculScenario>();
+  for (const scenario of topCandidates) {
+    topScenarioMap.set(scenario.scenario_id, scenario);
+  }
+  for (const scenario of orderedDisplayScenarios) {
+    if (topScenarioMap.size >= 3) break;
+    topScenarioMap.set(scenario.scenario_id, scenario);
+  }
+
+  const topScenarios = [...topScenarioMap.values()];
+  const topScenarioIds = new Set(topScenarios.map((scenario) => scenario.scenario_id));
+  const nextScenarios = orderedDisplayScenarios
+    .filter((scenario) => !topScenarioIds.has(scenario.scenario_id))
+    .slice(0, 5);
+  const podiumScenarioIds = topScenarios.map((scenario) => scenario.scenario_id);
   const allScenarioWarnings = new Set(
     calculs_par_scenario.flatMap((scenario) => scenario.avertissements_scenario)
   );
-  const topScenarioWarnings = podiumScenarioGroups.flatMap(
-    (group) => group.primary.avertissements_scenario
-  );
+  const topScenarioWarnings = topScenarios.flatMap((scenario) => scenario.avertissements_scenario);
   const relevantWarnings = dedupeMessages(
     [
       ...qualite_resultat.avertissements.filter((warning) => !allScenarioWarnings.has(warning)),
@@ -251,9 +269,6 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
       .filter((message): message is NonNullable<typeof message> => message !== null)
   );
 
-  const recommendedId = recommandation?.scenario_recommande_id ?? null;
-  const optimalId = comparaison.classement_net_apres_ir[0] ?? null;
-  const referenceId = comparaison.scenario_reference_id;
   const recommendationExplanation = buildRecommendationExplanation(output);
   const infoMessages = relevantWarnings.filter((message) => message.level === "info");
   const alertMessages = relevantWarnings.filter((message) => message.level === "warning");
@@ -274,8 +289,8 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
   const recommendedScenario = calculs_par_scenario.find(
     (scenario) => scenario.scenario_id === recommendedId
   );
-  const podiumContainsISStructure = podiumScenarioGroups.some((group) =>
-    isStructureIS(group.primary.base_id)
+  const podiumContainsISStructure = topScenarios.some((scenario) =>
+    isStructureIS(scenario.base_id)
   );
 
   const paramsBannerMessage = `Simulation basee sur les parametres fiscaux 2026 (PASS : ${new Intl.NumberFormat(
@@ -344,13 +359,11 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
             <div className="results-topfold-head">
               <h2>Regimes compatibles</h2>
               <p className="section-sub">
-                {displayScenarioCount} scenario{displayScenarioCount > 1 ? "s" : ""} affiche
-                {displayScenarioCount > 1 ? "s" : ""} pour votre profil.
+                Reference, recommande et meilleur net en tete, puis jusqu'a 5 regimes suivants.
               </p>
             </div>
             <div className="results-podium results-podium-top">
-              {podiumScenarioGroups.map((group, index) => {
-                const scenario = group.primary;
+              {topScenarios.map((scenario, index) => {
                 const badges: Array<"reference" | "recommande" | "optimal"> = [];
 
                 if (scenario.scenario_id === referenceId) badges.push("reference");
@@ -362,9 +375,9 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
                     key={scenario.scenario_id}
                     scenario={scenario}
                     referenceBaseId={referenceScenario?.base_id}
+                    isNewActivity={isNewActivity}
                     badges={badges}
                     rank={index + 1}
-                    groupedCount={group.groupedCount}
                     ecartAnnuel={
                       comparaison.ecarts.find((entry) => entry.scenario_id === scenario.scenario_id)
                         ?.DELTA_NET_APRES_IR
@@ -407,10 +420,9 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
 
         {nextScenarios.length > 0 && (
           <section className="results-section">
-            <h2>Scenarios suivants</h2>
+            <h2>Regimes suivants</h2>
             <p className="section-sub">
-              {nextScenarios.length} regime{nextScenarios.length > 1 ? "s" : ""} supplementaire
-              {nextScenarios.length > 1 ? "s" : ""} pour comparaison.
+              Les 5 regimes suivants les moins prioritaires pour votre profil, en lecture compacte.
             </p>
             <ComparaisonTable
               calculs={nextScenarios}
@@ -427,31 +439,6 @@ export function ResultsPage({ output, debugLogs, onRestart }: Props) {
                 * Estimation IR - donnees foyer incompletes ou calcul PAMC progressif
               </p>
             )}
-          </section>
-        )}
-
-        {lessRelevantScenarios.length > 0 && (
-          <section className="results-section">
-            <CollapsibleSection
-              summary={`Voir aussi ${lessRelevantScenarios.length} regime${
-                lessRelevantScenarios.length > 1 ? "s" : ""
-              } moins adapte${lessRelevantScenarios.length > 1 ? "s" : ""} a votre profil`}
-              badge={lessRelevantScenarios.length}
-            >
-              <div className="results-less-relevant">
-                {lessRelevantScenarios.map((scenario) => (
-                  <ScenarioCard
-                    key={scenario.scenario_id}
-                    scenario={scenario}
-                    referenceBaseId={referenceScenario?.base_id}
-                    ecartAnnuel={
-                      comparaison.ecarts.find((entry) => entry.scenario_id === scenario.scenario_id)
-                        ?.DELTA_NET_APRES_IR
-                    }
-                  />
-                ))}
-              </div>
-            </CollapsibleSection>
           </section>
         )}
 

@@ -205,12 +205,16 @@ describe("Intégration — Profil EI réel BIC IR avec ACRE (C13)", () => {
     }
   });
 
-  it("SUPER_NET ≥ NET_APRES_IR pour tous les scénarios (ARCE positive)", () => {
+  it("SUPER_NET ne differe de NET_APRES_IR que si BOOST_ARCE est actif", () => {
     const [output] = runEngineWithLogs(input);
     for (const sc of output.calculs_par_scenario) {
       const net_apres = sc.intermediaires.NET_APRES_IR ?? 0;
       const super_net = sc.intermediaires.SUPER_NET ?? 0;
-      expect(super_net).toBeGreaterThanOrEqual(net_apres);
+      if (sc.boosters_actifs.includes("BOOST_ARCE")) {
+        expect(super_net).toBeGreaterThanOrEqual(net_apres);
+      } else {
+        expect(super_net).toBeCloseTo(net_apres, 0);
+      }
     }
   });
 
@@ -238,23 +242,36 @@ describe("Cas limite — CA exactement au seuil micro BIC service", () => {
     expect(microService).toBeDefined();
   });
 
-  it("CA = seuil + 1 : première année de dépassement — micro maintenu avec avertissement (X01 tolérance)", () => {
+  it("CA = seuil + 1 sans CA_N1 : micro non retenu par prudence", () => {
     const [output] = runEngineWithLogs(
       baseInput({ CA_ENCAISSE_UTILISATEUR: SEUIL + 1 })
     );
-    // Règle fiscale : la première année de dépassement est tolérée.
-    // Le scénario micro doit être calculé (non exclu).
+    const microService = output.calculs_par_scenario.find(
+      (c) => c.base_id === "G_MBIC_SERVICE"
+    );
+    expect(microService).toBeUndefined();
+    expect(output.qualification?.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).not.toBe(true);
+    const hasAvert = output.qualite_resultat.avertissements.some(
+      (a) =>
+        a.toLowerCase().includes("maintien micro impossible") ||
+        a.toLowerCase().includes("micro non retenu par prudence") ||
+        a.includes("X01")
+    );
+    expect(hasAvert).toBe(true);
+  });
+
+  it("CA = seuil + 1 avec CA_N1 sous le seuil : micro maintenu en premiere annee de depassement", () => {
+    const [output] = runEngineWithLogs(
+      baseInput({
+        CA_ENCAISSE_UTILISATEUR: SEUIL + 1,
+        CA_N1_ANTERIEUR: SEUIL - 1,
+      })
+    );
     const microService = output.calculs_par_scenario.find(
       (c) => c.base_id === "G_MBIC_SERVICE"
     );
     expect(microService).toBeDefined();
-    // Le flag FLAG_PREMIERE_ANNEE_DEPASSEMENT doit être levé
     expect(output.qualification?.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).toBe(true);
-    // L'avertissement global signale la première année de dépassement
-    const hasAvert = output.qualite_resultat.avertissements.some(
-      (a) => a.includes("première fois") || a.includes("première année") || a.includes("X01_PREMIERE_ANNEE")
-    );
-    expect(hasAvert).toBe(true);
   });
 });
 
@@ -385,7 +402,7 @@ describe("Filtre X01 — CA très élevé sans CA N-1 → basculement réel obli
     expect(motif.toLowerCase()).toMatch(/x01|seuil micro|r.el obligatoire/i);
   });
 
-  it("CA = 90 000 € (< 2× seuil) sans CA_N1 → premiere_annee_depassement : micro encore calculé", () => {
+  it("CA = 90 000 € (< 2× seuil) sans CA_N1 → micro non retenu par prudence", () => {
     const SEUIL = P.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
     const [output] = runEngineWithLogs(
       baseInput({
@@ -396,7 +413,21 @@ describe("Filtre X01 — CA très élevé sans CA N-1 → basculement réel obli
     const microService = output.calculs_par_scenario.find(
       (c) => c.base_id === "G_MBIC_SERVICE"
     );
-    expect(microService).toBeDefined();
-    expect(output.qualification.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).toBe(true);
+    expect(microService).toBeUndefined();
+    expect(output.qualification.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT).not.toBe(true);
+  });
+});
+
+describe("Scenario de reference", () => {
+  it("Un liberal generaliste utilise l'EI reel BNC IR comme cas de reference lorsqu'il est disponible", () => {
+    const [output] = runEngineWithLogs(
+      baseInput({
+        SOUS_SEGMENT_ACTIVITE: "liberal",
+        CA_ENCAISSE_UTILISATEUR: 55_000,
+        AUTRES_REVENUS_FOYER_IMPOSABLES: 0,
+      })
+    );
+
+    expect(output.comparaison.scenario_reference_id).toContain("G_EI_REEL_BNC_IR");
   });
 });

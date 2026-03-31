@@ -24,8 +24,8 @@ type ScoreWeights = {
 };
 
 /**
- * Détermine le scénario de référence selon ALGORITHME.md section 9.1.
- * Priorité : 1) régime déclaré, 2) micro si disponible, 3) premier scénario disponible.
+ * Détermine le scénario de référence selon le cas classique du segment/profil.
+ * On privilégie un régime de base "standard" avant tout tri par simplicité ou net.
  */
 export function determinerScenarioReference(
   calculs: DetailCalculScenario[],
