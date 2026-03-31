@@ -3,6 +3,11 @@
  * vers des messages lisibles par l'utilisateur.
  */
 
+import { FISCAL_PARAMS_2026 } from "@wymby/config";
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value);
+
 // Codes purement techniques : jamais affichés à l'utilisateur
 const CODES_TECHNIQUES = new Set([
   "SIMULATION_SANTE_PAMC_ESTIMATIVE",
@@ -17,17 +22,17 @@ const CODES_TECHNIQUES = new Set([
 export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
   // ── Seuils micro ─────────────────────────────────────────────────────────
   DEPASSEMENT_SEUIL_MICRO_BNC:
-    "Votre chiffre d'affaires dépasse le seuil du régime micro-BNC (83 600 €). " +
+    `Votre chiffre d'affaires dépasse le seuil du régime micro-BNC (${formatCurrency(FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_BNC)} €). ` +
     "Vérifiez si ce dépassement est récurrent.",
   DEPASSEMENT_SEUIL_MICRO_BIC_SERVICE:
-    "Votre CA dépasse le seuil micro-BIC services (83 600 €). " +
+    `Votre CA dépasse le seuil micro-BIC services (${formatCurrency(FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE)} €). ` +
     "Vérifiez si ce dépassement est récurrent.",
   DEPASSEMENT_SEUIL_MICRO_BIC_VENTE:
-    "Votre CA dépasse le seuil micro-BIC achat-revente (203 100 €). " +
+    `Votre CA dépasse le seuil micro-BIC achat-revente (${formatCurrency(FISCAL_PARAMS_2026.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE)} €). ` +
     "Vérifiez si ce dépassement est récurrent.",
   BASCULEMENT_REEL_OBLIGE:
     "Le régime réel s'applique obligatoirement à votre situation " +
-    "(deux années consécutives de dépassement du seuil micro).",
+    "(historique micro incompatible, dépassement confirmé ou maintien non confirmable).",
 
   // ── Première année de dépassement ────────────────────────────────────────
   X01_PREMIERE_ANNEE:
@@ -44,7 +49,7 @@ export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
 
   // ── VFL ───────────────────────────────────────────────────────────────────
   VFL_INTERDIT_RFR_DEPASSE:
-    "L'option Versement Libératoire n'est pas disponible : votre revenu fiscal de référence 2023 " +
+    "L'option Versement Libératoire n'est pas disponible : votre revenu fiscal de référence N-2 " +
     "dépasse le plafond autorisé.",
 
   // ── PUMa ─────────────────────────────────────────────────────────────────
@@ -60,7 +65,7 @@ export const AVERTISSEMENT_TRANSLATIONS: Record<string, string> = {
   // ── IR temporaire ────────────────────────────────────────────────────────
   OPTION_IR_TEMPORAIRE_DUREE_LIMITEE_5_ANS:
     "L'option pour l'impôt sur le revenu (transparence fiscale) est temporaire : " +
-    "elle s'applique au maximum sur 5 exercices consécutifs. " +
+    `elle s'applique au maximum sur ${FISCAL_PARAMS_2026.temporalite.CFG_DUREE_OPTION_IR_TEMPORAIRE_SOCIETE.nb_exercices_max} exercices consécutifs. ` +
     "Passé ce délai, la société bascule automatiquement à l'IS — anticipez la transition.",
 
   // ── Données incomplètes ───────────────────────────────────────────────────

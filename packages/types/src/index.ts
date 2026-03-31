@@ -586,6 +586,13 @@ export type TrancheCotisation = {
   taux: number;
 };
 
+export type PalierCotisationProgressif = {
+  de_pass: number;
+  a_pass: number | null;
+  taux_min: number;
+  taux_max: number;
+};
+
 export type PhaseExoneration = {
   annee: number;
   taux: number;

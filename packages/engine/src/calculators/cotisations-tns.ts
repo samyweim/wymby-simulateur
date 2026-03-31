@@ -7,7 +7,11 @@
  * - Cotisations minimales forfaitaires si résultat nul ou négatif
  */
 
-import type { TrancheCotisation, ResultatCotisationsTNS } from "@wymby/types";
+import type {
+  PalierCotisationProgressif,
+  ResultatCotisationsTNS,
+  TrancheCotisation,
+} from "@wymby/types";
 import type { FISCAL_PARAMS_2026 as FiscalParamsType } from "@wymby/config";
 import type { EngineLogger } from "../logger.js";
 
@@ -70,9 +74,9 @@ export function f_cotisations_tns_bic(
   let cotisations_brutes = 0;
 
   // ── Maladie-maternité (tranches progressives) ──────────────────────────
-  const maladie = _calculerCotisationsTranches(
+  const maladie = _calculerMaladieProgressif(
     assiette,
-    tnsParams.maladie_maternite.tranches,
+    tnsParams.maladie_maternite.paliers,
     pass
   );
   detail["maladie_maternite"] = maladie;
@@ -264,4 +268,47 @@ function _calculerCotisationsTranches(
   }
 
   return cotisation;
+}
+
+function _calculerMaladieProgressif(
+  assiette: number,
+  paliers: readonly PalierCotisationProgressif[],
+  pass: number
+): number {
+  let total = 0;
+
+  for (const palier of paliers) {
+    const borne_inf = palier.de_pass * pass;
+    const borne_sup = palier.a_pass !== null ? palier.a_pass * pass : Infinity;
+
+    if (assiette <= borne_inf) {
+      break;
+    }
+
+    const fraction_inf = borne_inf;
+    const fraction_sup = Math.min(assiette, borne_sup);
+    const fraction = fraction_sup - fraction_inf;
+
+    if (fraction <= 0) {
+      continue;
+    }
+
+    if (palier.taux_min === palier.taux_max || !Number.isFinite(borne_sup)) {
+      total += fraction * palier.taux_min;
+      continue;
+    }
+
+    const t_debut =
+      palier.taux_min +
+      ((palier.taux_max - palier.taux_min) * (fraction_inf - borne_inf)) /
+        (borne_sup - borne_inf);
+    const t_fin =
+      palier.taux_min +
+      ((palier.taux_max - palier.taux_min) * (fraction_sup - borne_inf)) /
+        (borne_sup - borne_inf);
+    const taux_moyen = (t_debut + t_fin) / 2;
+    total += fraction * taux_moyen;
+  }
+
+  return total;
 }

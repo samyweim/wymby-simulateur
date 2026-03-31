@@ -112,12 +112,13 @@ export function qualifierProfil(
       input.SOUS_SEGMENT_ACTIVITE === undefined) &&
     ca <= microParams.CFG_SEUIL_CA_MICRO_BNC;
 
-  const FLAG_DEPASSEMENT_SEUIL_MICRO =
-    segment === "generaliste" &&
-    ca > _getSeuilMicroApplicable(input, params);
+  const microThresholdBreaches = _getMicroThresholdBreaches(input, params, segment, ca);
+  const FLAG_DEPASSEMENT_SEUIL_MICRO = microThresholdBreaches.length > 0;
 
   if (FLAG_DEPASSEMENT_SEUIL_MICRO) {
-    avertissements.push(`DEPASSEMENT_SEUIL_MICRO_${_getMicroLabelSuffix(input)}`);
+    for (const breach of microThresholdBreaches) {
+      avertissements.push(`DEPASSEMENT_SEUIL_MICRO_${breach}`);
+    }
     // Note : BASCULEMENT_REEL_OBLIGE est déterminé dans exclusion.ts
     // selon la règle de tolérance (deux années consécutives requises).
   }
@@ -134,19 +135,17 @@ export function qualifierProfil(
       input.SOUS_SEGMENT_ACTIVITE === "prestation" ||
       input.SOUS_SEGMENT_ACTIVITE === undefined);
 
-  // EI réel BIC IS : option IS possible, conditions temporelles
-  // TODO [AMBIGUÏTÉ] : CFG_DATE_LIMITE_OPTION_IS_EI — date limite option IS EI (avant 31/03 de l'exercice)
-  // Variables concernées : CFG_DATE_LIMITE_OPTION_IS_EI, DATE_CREATION_ACTIVITE
-  // Impact : ouverture/fermeture de la branche EI IS selon timing — stub ci-dessous
+  // EI réel BIC IS : option IS possible dans la fenêtre temporelle paramétrée
   const FLAG_EI_REEL_BIC_IS_POSSIBLE =
-    FLAG_EI_REEL_BIC_IR_POSSIBLE; // approximation — conditions réelles à affiner
+    FLAG_EI_REEL_BIC_IR_POSSIBLE && _isOptionISEIValide(input, params);
 
   const FLAG_EI_REEL_BNC_IR_POSSIBLE =
     segment === "generaliste" &&
     (input.SOUS_SEGMENT_ACTIVITE === "liberal" ||
       input.SOUS_SEGMENT_ACTIVITE === undefined);
 
-  const FLAG_EI_REEL_BNC_IS_POSSIBLE = FLAG_EI_REEL_BNC_IR_POSSIBLE;
+  const FLAG_EI_REEL_BNC_IS_POSSIBLE =
+    FLAG_EI_REEL_BNC_IR_POSSIBLE && _isOptionISEIValide(input, params);
 
   // ── EURL / SASU ────────────────────────────────────────────────────────────
   const formeJuridique = input.FORME_JURIDIQUE_ENVISAGEE;
@@ -179,7 +178,7 @@ export function qualifierProfil(
     segment === "sante" &&
     input.EST_REMPLACANT === true &&
     input.SOUS_SEGMENT_ACTIVITE === "medecin" &&
-    recettesImmobilieres <= (params.social.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0);
+    input.CA_ENCAISSE_UTILISATEUR <= params.social.CFG_SEUIL_ELIGIBILITE_RSPM;
   const FLAG_SANTE_MICRO_POSSIBLE =
     segment === "sante" && ca <= microParams.CFG_SEUIL_CA_MICRO_BNC;
   const FLAG_SANTE_REEL_POSSIBLE = segment === "sante";
@@ -422,20 +421,39 @@ function _qualifierVFL(
   return { FLAG_VFL_POSSIBLE: true, FLAG_VFL_INTERDIT: false };
 }
 
-function _getSeuilMicroApplicable(input: UserInput, params: FP): number {
-  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") {
-    return params.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE;
-  }
-  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") {
-    return params.micro.CFG_SEUIL_CA_MICRO_BNC;
-  }
-  return params.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
-}
+function _getMicroThresholdBreaches(
+  input: UserInput,
+  params: FP,
+  segment: SegmentActivite,
+  ca: number
+): Array<"BIC_VENTE" | "BIC_SERVICE" | "BNC"> {
+  if (segment !== "generaliste") return [];
 
-function _getMicroLabelSuffix(input: UserInput): string {
-  if (input.SOUS_SEGMENT_ACTIVITE === "achat_revente") return "BIC_VENTE";
-  if (input.SOUS_SEGMENT_ACTIVITE === "liberal") return "BNC";
-  return "BIC_SERVICE";
+  const breaches: Array<"BIC_VENTE" | "BIC_SERVICE" | "BNC"> = [];
+  const sousSegment = input.SOUS_SEGMENT_ACTIVITE;
+
+  if (
+    (sousSegment === "achat_revente" || sousSegment === undefined) &&
+    ca > params.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE
+  ) {
+    breaches.push("BIC_VENTE");
+  }
+
+  if (
+    (sousSegment === "prestation" || sousSegment === undefined) &&
+    ca > params.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE
+  ) {
+    breaches.push("BIC_SERVICE");
+  }
+
+  if (
+    (sousSegment === "liberal" || sousSegment === undefined) &&
+    ca > params.micro.CFG_SEUIL_CA_MICRO_BNC
+  ) {
+    breaches.push("BNC");
+  }
+
+  return breaches;
 }
 
 function _getTvaLabelSuffix(input: UserInput): string {
@@ -465,6 +483,33 @@ function _isIRTemporaireValide(input: UserInput, params: FP): boolean {
     (now.getTime() - dateCreation.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
 
   return anneesDiff <= dureeMax;
+}
+
+function _isOptionISEIValide(input: UserInput, params: FP): boolean {
+  const optionConfig = params.temporalite.CFG_DATE_LIMITE_OPTION_IS_EI;
+  const today = new Date();
+  const simulationYear = input.ANNEE_SIMULATION ?? today.getFullYear();
+  const dateLimiteExercice = new Date(
+    simulationYear,
+    optionConfig.mois_limite_exercice - 1,
+    optionConfig.jour_limite_exercice,
+    23,
+    59,
+    59,
+    999
+  );
+
+  if (input.DATE_CREATION_ACTIVITE) {
+    const dateCreation = new Date(input.DATE_CREATION_ACTIVITE);
+    const moisDepuisCreation =
+      (today.getTime() - dateCreation.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+
+    if (moisDepuisCreation <= optionConfig.delai_creation_mois) {
+      return true;
+    }
+  }
+
+  return today <= dateLimiteExercice;
 }
 
 function _isAcrePossible(

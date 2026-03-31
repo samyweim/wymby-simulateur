@@ -418,6 +418,26 @@ describe("Filtre X01 — CA très élevé sans CA N-1 → basculement réel obli
   });
 });
 
+describe("Filtre X01 par regime micro", () => {
+  it("Sans sous-segment, un depassement du seuil service ne doit pas invalider micro-BIC vente", () => {
+    const [output] = runEngineWithLogs(
+      baseInput({
+        CA_ENCAISSE_UTILISATEUR: 90_000,
+        SOUS_SEGMENT_ACTIVITE: undefined,
+      })
+    );
+
+    const microVente = output.calculs_par_scenario.find((c) => c.base_id === "G_MBIC_VENTE");
+    const microService = output.calculs_par_scenario.find((c) => c.base_id === "G_MBIC_SERVICE");
+    const microServiceExclu = output.scenarios_exclus.find((c) => c.base_id === "G_MBIC_SERVICE");
+
+    expect(microVente).toBeDefined();
+    expect(microVente?.options_supplementaires).not.toContain("DERNIER_EXERCICE_MICRO_POSSIBLE");
+    expect(microService).toBeUndefined();
+    expect(microServiceExclu).toBeDefined();
+  });
+});
+
 describe("Scenario de reference", () => {
   it("Un liberal generaliste utilise l'EI reel BNC IR comme cas de reference lorsqu'il est disponible", () => {
     const [output] = runEngineWithLogs(
@@ -429,5 +449,33 @@ describe("Scenario de reference", () => {
     );
 
     expect(output.comparaison.scenario_reference_id).toContain("G_EI_REEL_BNC_IR");
+  });
+});
+
+describe("RSPM et option IS EI", () => {
+  it("Le plafond RSPM s'evalue sur le CA d'activite, pas sur des recettes immobilieres", () => {
+    const [output] = runEngineWithLogs(
+      baseInput({
+        SEGMENT_ACTIVITE: "sante",
+        SOUS_SEGMENT_ACTIVITE: "medecin",
+        EST_REMPLACANT: true,
+        CA_ENCAISSE_UTILISATEUR: 30_000,
+        RECETTES_LOCATION_MEUBLEE: 250_000,
+      })
+    );
+
+    expect(output.qualification.flags.FLAG_RSPM_POSSIBLE).toBe(true);
+  });
+
+  it("L'option IS de l'EI n'est plus ouverte apres la date limite si l'activite n'est pas recente", () => {
+    const [output] = runEngineWithLogs(
+      baseInput({
+        ANNEE_SIMULATION: 2026,
+        SOUS_SEGMENT_ACTIVITE: "prestation",
+        DATE_CREATION_ACTIVITE: "2024-01-15",
+      })
+    );
+
+    expect(output.qualification.flags.FLAG_EI_REEL_BIC_IS_POSSIBLE).toBe(false);
   });
 });

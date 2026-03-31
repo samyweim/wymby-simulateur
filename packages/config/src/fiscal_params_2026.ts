@@ -47,6 +47,17 @@ export type TrancheCotisation = {
   taux: number;
 };
 
+export type PalierCotisationProgressif = {
+  /** Borne inférieure en multiple du PASS (0 = plancher absolu) */
+  de_pass: number;
+  /** Borne supérieure en multiple du PASS (null = sans plafond) */
+  a_pass: number | null;
+  /** Taux applicable au début du palier */
+  taux_min: number;
+  /** Taux applicable à la fin du palier */
+  taux_max: number;
+};
+
 export type PhaseExoneration = {
   /** Numéro d'année dans le dispositif (1, 2, …) */
   annee: number;
@@ -151,6 +162,12 @@ export const FISCAL_PARAMS_2026 = {
      * Ce seuil n'est PAS revalorisé automatiquement.
      */
     CFG_SEUIL_CA_MICRO_MEUBLE_TOURISME_NON_CLASSE: 15_000,
+
+    /**
+     * Multiplicateur d'alerte pour un dépassement massif du micro sans CA N-1.
+     * Au-delà de ce multiple, le maintien micro n'est plus retenu par prudence.
+     */
+    CFG_MULTIPLICATEUR_DEPASSEMENT_MASSIF_SANS_CA_N1: 2,
 
     /**
      * Note sur les activités mixtes :
@@ -387,6 +404,12 @@ export const FISCAL_PARAMS_2026 = {
       url_inscription: "www.medecins-remplacants.urssaf.fr",
     },
 
+    /**
+     * Plafond d'éligibilité au régime simplifié médecins remplaçants.
+     * Distinct des tranches de taux pour éviter une dépendance implicite à leur structure.
+     */
+    CFG_SEUIL_ELIGIBILITE_RSPM: 38_000,
+
 
     // ── 5b. COTISATIONS TNS RÉGIME RÉEL — BARÈME PAR BRANCHE ────────────────
     /**
@@ -399,13 +422,20 @@ export const FISCAL_PARAMS_2026 = {
      */
     CFG_TAUX_SOCIAL_TNS_BIC: {
       maladie_maternite: {
-        libelle: "Assurance maladie-maternité",
-        tranches: [
-          { de_pass: 0.00, a_pass: 0.40, taux: 0.00 },
-          { de_pass: 0.40, a_pass: 1.10, taux: 0.04 },
-          { de_pass: 1.10, a_pass: null, taux: 0.065 },
-        ] as TrancheCotisation[],
-        note: "Progressivité 0 % à 6,5 % — max au-delà de 1,1 PASS",
+        libelle: "Assurance maladie-maternité SSI — barème unifié post-réforme ASU 2026",
+        paliers: [
+          { de_pass: 0.00, a_pass: 0.20, taux_min: 0.000, taux_max: 0.000 },
+          { de_pass: 0.20, a_pass: 0.40, taux_min: 0.000, taux_max: 0.015 },
+          { de_pass: 0.40, a_pass: 0.60, taux_min: 0.015, taux_max: 0.040 },
+          { de_pass: 0.60, a_pass: 1.10, taux_min: 0.040, taux_max: 0.065 },
+          { de_pass: 1.10, a_pass: 2.00, taux_min: 0.065, taux_max: 0.077 },
+          { de_pass: 2.00, a_pass: 3.00, taux_min: 0.077, taux_max: 0.085 },
+          { de_pass: 3.00, a_pass: null, taux_min: 0.065, taux_max: 0.065 },
+        ] as const satisfies readonly PalierCotisationProgressif[],
+        note:
+          "Barème complet post-réforme ASU — 7 paliers avec interpolation linéaire intra-palier. " +
+          "Contribution additionnelle 6,5 % au-delà de 3 PASS (non progressive). " +
+          "Source : URSSAF barèmes 2026, mis à jour 23/12/2025.",
       },
       indemnites_journalieres: {
         libelle: "Indemnités journalières",
@@ -415,9 +445,11 @@ export const FISCAL_PARAMS_2026 = {
       },
       retraite_base_plafonnee: {
         libelle: "Vieillesse de base plafonnée",
-        taux: 0.1775,
+        taux: 0.1787,
         plafond_pass: 1,
-        note: "17,75 % dans la limite de 1 PASS",
+        note:
+          "17,87 % dans la limite de 1 PASS (17,15 % + 0,72 % déplafonnée) — " +
+          "Source : URSSAF barèmes 2026, mis à jour 23/12/2025",
       },
       retraite_base_deplafonnee: {
         libelle: "Vieillesse de base déplafonnée",
@@ -2080,6 +2112,9 @@ export const FISCAL_PARAMS_2026 = {
      */
     CFG_DATE_LIMITE_OPTION_IS_EI: {
       date_limite: "Avant la fin du 3e mois de l'exercice (ex : 31 mars pour exercice calendaire)",
+      mois_limite_exercice: 3,
+      jour_limite_exercice: 31,
+      delai_creation_mois: 3,
       revocabilite: "Renonciation possible avant la fin du 2e mois de l'exercice concerné",
       irrevocabilite: "Définitive après 5 exercices",
       note: "L'option IS pour une EI crée une assimilation fiscale à l'EURL (IS irrévocable au-delà).",

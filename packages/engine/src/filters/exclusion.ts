@@ -7,7 +7,7 @@
  * X04 : Revenu activité < seuil PUMa + revenus capital élevés → taxe rentier potentielle
  */
 
-import type { UserInput, ScenarioCandidat, ScenarioExclu } from "@wymby/types";
+import type { UserInput, ScenarioCandidat, ScenarioExclu, BaseScenarioId } from "@wymby/types";
 import type { NormalisationResult } from "../normalizer.js";
 import type { QualificationResult } from "../qualifier.js";
 import type { EngineLogger } from "../logger.js";
@@ -22,6 +22,17 @@ export interface FiltreExclusionResult {
   vfl_exclu: boolean;
   puma_applicable: boolean;
   motifs: Record<string, string>;
+  micro_decisions: Partial<Record<MicroScenarioBaseId, MicroExclusionDecision>>;
+}
+
+type MicroScenarioBaseId = "G_MBIC_VENTE" | "G_MBIC_SERVICE" | "G_MBNC";
+
+interface MicroExclusionDecision {
+  seuil: number;
+  depasse_seuil: boolean;
+  basculement_reel_oblige: boolean;
+  premiere_annee_depassement: boolean;
+  motif?: string;
 }
 
 /**
@@ -40,50 +51,31 @@ export function appliquerFiltresExclusion(
   // ── X01 : Dépassement durable des seuils micro ────────────────────────────
   // Règle fiscale : bascule réel obligatoire si CA N > seuil ET CA N-1 > seuil.
   // Un seul dépassement ne suffit pas — la première année est tolérée.
-  let basculement_reel_oblige = false;
-  let premiere_annee_depassement = false;
-  {
-    const seuil = _getSeuilMicroApplicable(input, params);
-    const caN1 = input.CA_N1_ANTERIEUR;
+  const micro_decisions = _buildMicroDecisions(input, norm, qual, params);
+  const microDepassements = Object.values(micro_decisions).filter((decision) => decision.depasse_seuil);
+  const basculement_reel_oblige =
+    microDepassements.length > 0 &&
+    microDepassements.every((decision) => decision.basculement_reel_oblige);
+  const premiere_annee_depassement = microDepassements.some(
+    (decision) => decision.premiere_annee_depassement
+  );
 
-    if (qual.flags.FLAG_DEPASSEMENT_SEUIL_MICRO && norm.CA_HT_RETENU > seuil) {
-      const caN1DepasseSeuil = caN1 !== undefined && caN1 > seuil;
-      // When CA exceeds 2× the micro threshold it is implausible the user was on micro
-      // the prior year — enforce basculement even without CA N-1 data.
-      const depassement_massif = norm.CA_HT_RETENU > seuil * 2;
-
-      if (caN1DepasseSeuil || depassement_massif) {
-        // Two consecutive years confirmed, or CA too far above threshold to tolerate
-        basculement_reel_oblige = true;
-        motifs["X01"] =
-          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) ` +
-          (caN1DepasseSeuil
-            ? "pour la deuxième année consécutive."
-            : `(plus de 2× le seuil — tolérance première année inapplicable).`) +
-          " Bascule en régime réel obligatoire (filtre X01).";
-      } else if (caN1 === undefined) {
-        basculement_reel_oblige = true;
-        motifs["X01"] =
-          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) ` +
-          "mais le CA N-1 n'est pas renseigné. Maintien micro impossible à confirmer : " +
-          "régime micro non retenu par prudence.";
-      } else {
-        // First year of exceeding the threshold, explicitly confirmed by CA N-1 under threshold
-        premiere_annee_depassement = true;
-        motifs["X01_PREMIERE_ANNEE"] =
-          `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro (${seuil} €) pour la ` +
-          "première fois. Régime micro maintenu jusqu'au 31/12/N. " +
-          "Bascule réel obligatoire à partir du 01/01/N+1.";
-      }
-    }
-
-    logger.calc(3, "Filtre X01", "basculement_reel_oblige", basculement_reel_oblige, {
-      CA_HT: norm.CA_HT_RETENU,
-      seuil_micro: seuil,
-      CA_N1: caN1,
-      premiere_annee_depassement,
-    });
+  if (basculement_reel_oblige) {
+    motifs["X01"] =
+      "Tous les régimes micro compatibles avec votre activité dépassent leur seuil applicable. " +
+      "Le régime réel est retenu par prudence ou devient obligatoire selon vos historiques déclarés.";
+  } else if (premiere_annee_depassement) {
+    motifs["X01_PREMIERE_ANNEE"] =
+      "Au moins un régime micro dépasse son seuil applicable pour la première fois. " +
+      "Il peut rester ouvert jusqu'au 31/12/N avant bascule éventuelle au 01/01/N+1.";
   }
+
+  logger.calc(3, "Filtre X01", "basculement_reel_oblige", basculement_reel_oblige, {
+    CA_HT: norm.CA_HT_RETENU,
+    CA_N1: input.CA_N1_ANTERIEUR,
+    premiere_annee_depassement,
+    micro_decisions,
+  });
 
   // ── X02 : Dépassement seuil TVA ───────────────────────────────────────────
   const tva_collectee_obligatoire = qual.flags.FLAG_DEPASSEMENT_SEUIL_TVA;
@@ -132,6 +124,7 @@ export function appliquerFiltresExclusion(
     vfl_exclu,
     puma_applicable,
     motifs,
+    micro_decisions,
   };
 }
 
@@ -152,12 +145,16 @@ export function filtrerScenariosParExclusion(
   for (const sc of scenarios) {
     const motifsExclusion: string[] = [];
 
-    // X01 : régimes micro exclus si bascule réel obligatoire (deux années consécutives)
-    if (
-      filtres.basculement_reel_oblige &&
-      _isMicroScenario(sc.base_id)
-    ) {
-      motifsExclusion.push(filtres.motifs["X01"] ?? "Seuil micro dépassé (deux années consécutives)");
+    // X01 : évalué régime micro par régime micro, avec son propre seuil applicable.
+    const microDecision = _isGeneralisteMicroScenario(sc.base_id)
+      ? filtres.micro_decisions[sc.base_id as MicroScenarioBaseId]
+      : undefined;
+    if (microDecision?.basculement_reel_oblige) {
+      motifsExclusion.push(
+        microDecision.motif ??
+          filtres.motifs["X01"] ??
+          "Seuil micro dépassé pour ce régime"
+      );
     }
 
     // X02 : TVA franchise exclue si dépassement TVA
@@ -188,7 +185,7 @@ export function filtrerScenariosParExclusion(
       });
     } else {
       // X01 première année : micro maintenu mais marqué dernier exercice possible
-      if (filtres.premiere_annee_depassement && _isMicroScenario(sc.base_id)) {
+      if (microDecision?.premiere_annee_depassement) {
         possibles.push({
           ...sc,
           options_supplementaires: [
@@ -219,7 +216,7 @@ export function filtrerScenariosParExclusion(
     }
   }
 
-  const rspmSeuilMax = params.social.CFG_TAUX_SOCIAL_RSPM.tranche_2.a ?? 0;
+  const rspmSeuilMax = params.social.CFG_SEUIL_ELIGIBILITE_RSPM;
   const isRspmOutOfRange =
     input.SEGMENT_ACTIVITE === "sante" &&
     input.SOUS_SEGMENT_ACTIVITE === "medecin" &&
@@ -256,13 +253,6 @@ export function filtrerScenariosParExclusion(
 // Helpers privés
 // ─────────────────────────────────────────────────────────────────────────────
 
-function _getSeuilMicroApplicable(input: UserInput, params: FP): number {
-  const ss = input.SOUS_SEGMENT_ACTIVITE;
-  if (ss === "achat_revente") return params.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE;
-  if (ss === "liberal") return params.micro.CFG_SEUIL_CA_MICRO_BNC;
-  return params.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
-}
-
 function _isMicroScenario(baseId: string): boolean {
   return (
     baseId === "G_MBIC_VENTE" ||
@@ -274,6 +264,112 @@ function _isMicroScenario(baseId: string): boolean {
     baseId === "A_BNC_MICRO_TVA_COLLECTEE" ||
     baseId === "I_LMNP_MICRO"
   );
+}
+
+function _isGeneralisteMicroScenario(baseId: string): baseId is MicroScenarioBaseId {
+  return baseId === "G_MBIC_VENTE" || baseId === "G_MBIC_SERVICE" || baseId === "G_MBNC";
+}
+
+function _buildMicroDecisions(
+  input: UserInput,
+  norm: NormalisationResult,
+  qual: QualificationResult,
+  params: FP
+): Partial<Record<MicroScenarioBaseId, MicroExclusionDecision>> {
+  const decisions: Partial<Record<MicroScenarioBaseId, MicroExclusionDecision>> = {};
+
+  for (const baseId of ["G_MBIC_VENTE", "G_MBIC_SERVICE", "G_MBNC"] as const) {
+    const decision = _evaluerFiltreMicroPourScenario(baseId, input, norm, qual, params);
+    if (decision !== null) {
+      decisions[baseId] = decision;
+    }
+  }
+
+  return decisions;
+}
+
+function _evaluerFiltreMicroPourScenario(
+  baseId: MicroScenarioBaseId,
+  input: UserInput,
+  norm: NormalisationResult,
+  qual: QualificationResult,
+  params: FP
+): MicroExclusionDecision | null {
+  if (qual.segment !== "generaliste") return null;
+
+  const sousSegment = input.SOUS_SEGMENT_ACTIVITE;
+  const compatible =
+    (baseId === "G_MBIC_VENTE" &&
+      (sousSegment === "achat_revente" || sousSegment === undefined)) ||
+    (baseId === "G_MBIC_SERVICE" &&
+      (sousSegment === "prestation" || sousSegment === undefined)) ||
+    (baseId === "G_MBNC" &&
+      (sousSegment === "liberal" || sousSegment === undefined));
+
+  if (!compatible) return null;
+
+  const seuil = _getSeuilPourScenario(baseId, params);
+  const depasse_seuil = norm.CA_HT_RETENU > seuil;
+
+  if (!depasse_seuil) {
+    return {
+      seuil,
+      depasse_seuil: false,
+      basculement_reel_oblige: false,
+      premiere_annee_depassement: false,
+    };
+  }
+
+  const caN1 = input.CA_N1_ANTERIEUR;
+  const caN1DepasseSeuil = caN1 !== undefined && caN1 > seuil;
+  const multiplicateurMassif =
+    params.micro.CFG_MULTIPLICATEUR_DEPASSEMENT_MASSIF_SANS_CA_N1;
+  const depassement_massif = norm.CA_HT_RETENU > seuil * multiplicateurMassif;
+
+  if (caN1DepasseSeuil || depassement_massif) {
+    return {
+      seuil,
+      depasse_seuil: true,
+      basculement_reel_oblige: true,
+      premiere_annee_depassement: false,
+      motif:
+        `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro applicable à ${baseId} (${seuil} €) ` +
+        (caN1DepasseSeuil
+          ? "pour la deuxième année consécutive."
+          : `(plus de ${multiplicateurMassif}× le seuil — tolérance première année inapplicable).`) +
+        " Bascule en régime réel obligatoire (filtre X01).",
+    };
+  }
+
+  if (caN1 === undefined) {
+    return {
+      seuil,
+      depasse_seuil: true,
+      basculement_reel_oblige: true,
+      premiere_annee_depassement: false,
+      motif:
+        `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro applicable à ${baseId} (${seuil} €) ` +
+        "mais le CA N-1 n'est pas renseigné. Maintien micro impossible à confirmer : " +
+        "régime micro non retenu par prudence.",
+    };
+  }
+
+  return {
+    seuil,
+    depasse_seuil: true,
+    basculement_reel_oblige: false,
+    premiere_annee_depassement: true,
+    motif:
+      `CA HT retenu (${norm.CA_HT_RETENU} €) dépasse le seuil micro applicable à ${baseId} (${seuil} €) pour la ` +
+      "première fois. Régime micro maintenu jusqu'au 31/12/N. " +
+      "Bascule réel obligatoire à partir du 01/01/N+1.",
+  };
+}
+
+function _getSeuilPourScenario(baseId: BaseScenarioId, params: FP): number {
+  if (baseId === "G_MBIC_VENTE") return params.micro.CFG_SEUIL_CA_MICRO_BIC_VENTE;
+  if (baseId === "G_MBNC") return params.micro.CFG_SEUIL_CA_MICRO_BNC;
+  return params.micro.CFG_SEUIL_CA_MICRO_BIC_SERVICE;
 }
 
 function _getRequestedMicroBase(input: UserInput): ScenarioExclu["base_id"] | null {

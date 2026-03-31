@@ -408,6 +408,19 @@ Déclinaisons natives : `TVA_FRANCHISE` / `TVA_COLLECTEE`, `VFL_NON` / `VFL_OUI`
 
 Surcouches santé : `CPAM_AIDE_NONE` / `CPAM_AIDE_PARTIELLE` / `CPAM_AIDE_PLEINE`, `ZIP_ZAC_NONE` / `ZIP_ZAC_OUI`.
 
+### Note réglementaire — Micro-BNC PAMC
+
+Le seuil d'éligibilité au micro-BNC pour les professionnels de santé
+conventionnés (PAMC) est identique au seuil BNC général (art. 102 ter CGI).
+Il n'existe pas de seuil sectoriel distinct par secteur conventionnel.
+
+La spécificité PAMC est **sociale uniquement** : les cotisations sont
+calculées selon le barème DS-PAMC, pas selon le taux micro-social standard.
+`FLAG_SANTE_MICRO_POSSIBLE` testant `CA ≤ CFG_SEUIL_CA_MICRO_BNC` est donc
+fiscalement correct — aucune constante supplémentaire n'est à créer.
+
+Sources : art. 102 ter CGI · BOI-BNC-DECLA-20-10 · BOI-BNC-SECT-40
+
 **Segment 3 — Artistes-auteurs**
 
 | ID | Description |

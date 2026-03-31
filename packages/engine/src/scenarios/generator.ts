@@ -108,31 +108,33 @@ function _isBaseEligible(
   const f = qual.flags;
 
   switch (baseId) {
-    // Micro scénarios : bloqués si bascule réel obligatoire (X01 deux années consécutives).
-    // FLAG_PREMIERE_ANNEE_DEPASSEMENT est positionné AVANT la génération dans index.ts.
-    // En cas de basculement réel obligatoire, on laisse passer ici pour que le filtre
-    // d'exclusion les classe explicitement dans les scénarios exclus avec leur motif.
+    // Micro scénarios : on laisse volontairement passer les bases dépassées à cette étape
+    // lorsqu'un filtre X01 spécifique au régime s'applique, afin que
+    // filtrerScenariosParExclusion() les rende visibles dans scenarios_exclus avec leur motif.
     case "G_MBIC_VENTE":
-      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
-        return input.SOUS_SEGMENT_ACTIVITE === "achat_revente";
+      if (qual.segment === "generaliste") {
+        const decision = filtres.micro_decisions.G_MBIC_VENTE;
+        if (decision?.basculement_reel_oblige || decision?.premiere_annee_depassement) {
+          return input.SOUS_SEGMENT_ACTIVITE === "achat_revente" || input.SOUS_SEGMENT_ACTIVITE === undefined;
+        }
       }
-      return qual.segment === "generaliste" &&
-        (qual.flags.FLAG_MICRO_BIC_VENTE_POSSIBLE ||
-          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
+      return qual.segment === "generaliste" && qual.flags.FLAG_MICRO_BIC_VENTE_POSSIBLE;
     case "G_MBIC_SERVICE":
-      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
-        return input.SOUS_SEGMENT_ACTIVITE === "prestation" || input.SOUS_SEGMENT_ACTIVITE === undefined;
+      if (qual.segment === "generaliste") {
+        const decision = filtres.micro_decisions.G_MBIC_SERVICE;
+        if (decision?.basculement_reel_oblige || decision?.premiere_annee_depassement) {
+          return input.SOUS_SEGMENT_ACTIVITE === "prestation" || input.SOUS_SEGMENT_ACTIVITE === undefined;
+        }
       }
-      return qual.segment === "generaliste" &&
-        (qual.flags.FLAG_MICRO_BIC_SERVICE_POSSIBLE ||
-          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
+      return qual.segment === "generaliste" && qual.flags.FLAG_MICRO_BIC_SERVICE_POSSIBLE;
     case "G_MBNC":
-      if (qual.segment === "generaliste" && filtres.basculement_reel_oblige) {
-        return input.SOUS_SEGMENT_ACTIVITE === "liberal";
+      if (qual.segment === "generaliste") {
+        const decision = filtres.micro_decisions.G_MBNC;
+        if (decision?.basculement_reel_oblige || decision?.premiere_annee_depassement) {
+          return input.SOUS_SEGMENT_ACTIVITE === "liberal" || input.SOUS_SEGMENT_ACTIVITE === undefined;
+        }
       }
-      return qual.segment === "generaliste" &&
-        (qual.flags.FLAG_MICRO_BNC_POSSIBLE ||
-          qual.flags.FLAG_PREMIERE_ANNEE_DEPASSEMENT);
+      return qual.segment === "generaliste" && qual.flags.FLAG_MICRO_BNC_POSSIBLE;
     case "G_EI_REEL_BIC_IR": return f.FLAG_EI_REEL_BIC_IR_POSSIBLE;
     case "G_EI_REEL_BIC_IS": return f.FLAG_EI_REEL_BIC_IS_POSSIBLE;
     case "G_EI_REEL_BNC_IR": return f.FLAG_EI_REEL_BNC_IR_POSSIBLE;
